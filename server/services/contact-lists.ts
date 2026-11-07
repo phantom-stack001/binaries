@@ -9,6 +9,7 @@ export function serializeContactList(
   row: typeof contactLists.$inferSelect,
   memberCount: number,
   canManage = true,
+  canAddContacts = true,
 ) {
   return {
     id: row.id,
@@ -17,12 +18,13 @@ export function serializeContactList(
     isTestList: row.isTestList,
     memberCount,
     canManage,
+    canAddContacts,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-export async function listContactLists(db: Database, userId: string | null, manageableOwnerId?: string) {
+export async function listContactLists(db: Database, userId: string | null, manageableOwnerId?: string, canManageAll = false) {
   const rows = await db
     .select()
     .from(contactLists)
@@ -42,7 +44,7 @@ export async function listContactLists(db: Database, userId: string | null, mana
   const countMap = new Map(counts.map((row) => [row.listId, row.count]));
 
   return rows.map((row) =>
-    serializeContactList(row, countMap.get(row.id) ?? 0, manageableOwnerId ? row.userId === manageableOwnerId : true),
+    serializeContactList(row, countMap.get(row.id) ?? 0, canManageAll, Boolean(manageableOwnerId && row.userId === manageableOwnerId)),
   );
 }
 
@@ -92,7 +94,7 @@ export async function createContactList(
 
 export async function updateContactList(
   db: Database,
-  userId: string,
+  userId: string | null,
   listId: string,
   input: { name?: string; description?: string; isTestList?: boolean },
   actorUserId?: string,
@@ -109,7 +111,7 @@ export async function updateContactList(
         isTestList: input.isTestList ?? existing.isTestList,
         updatedAt: new Date(),
       })
-      .where(and(eq(contactLists.id, listId), eq(contactLists.userId, userId)))
+      .where(userId ? and(eq(contactLists.id, listId), eq(contactLists.userId, userId)) : eq(contactLists.id, listId))
       .returning();
     if (!row) return null;
     const nameOrDescriptionChanged =
@@ -132,16 +134,16 @@ export async function updateContactList(
   }
 }
 
-export async function deleteContactList(db: Database, userId: string, listId: string, actorUserId?: string) {
+export async function deleteContactList(db: Database, userId: string | null, listId: string, actorUserId?: string) {
   const [row] = await db
     .delete(contactLists)
-    .where(and(eq(contactLists.id, listId), eq(contactLists.userId, userId)))
+    .where(userId ? and(eq(contactLists.id, listId), eq(contactLists.userId, userId)) : eq(contactLists.id, listId))
     .returning({ id: contactLists.id, name: contactLists.name });
   if (row) {
     await recordAuditEvent(db, {
       action: AUDIT_ACTIONS.contactListDeleted,
       category: "RECIPIENT_LIST",
-      actorUserId: actorUserId ?? userId,
+      actorUserId: actorUserId ?? userId ?? "system",
       resourceType: "contact_list",
       resourceId: row.id,
       metadata: { listName: row.name },
@@ -237,7 +239,7 @@ export async function addContactsToList(
 
 export async function removeContactFromList(
   db: Database,
-  userId: string,
+  userId: string | null,
   listId: string,
   contactId: string,
 ) {
@@ -247,7 +249,7 @@ export async function removeContactFromList(
   const contact = await db
     .select({ id: contacts.id })
     .from(contacts)
-    .where(and(eq(contacts.id, contactId), eq(contacts.userId, userId)))
+    .where(userId ? and(eq(contacts.id, contactId), eq(contacts.userId, userId)) : eq(contacts.id, contactId))
     .limit(1);
 
   if (!contact[0]) return null;
@@ -267,7 +269,7 @@ export async function removeContactFromList(
 
 export async function removeContactsFromList(
   db: Database,
-  userId: string,
+  userId: string | null,
   listId: string,
   contactIds: string[],
 ) {

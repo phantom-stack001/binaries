@@ -90,7 +90,7 @@ export function ContactsTable({
               </Badge>
               {!contact.canManage ? <Badge variant="secondary">View only</Badge> : null}
             </div>
-            {showActions && contact.canManage ? (
+            {showActions && (contact.canManage || (onAddToList && contact.canAddToList)) ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="size-11 shrink-0" aria-label="Contact actions">
@@ -98,22 +98,22 @@ export function ContactsTable({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {onEdit ? (
+                  {contact.canManage && onEdit ? (
                     <DropdownMenuItem onClick={() => onEdit(contact)}>
                       <Pencil className="size-4" /> Edit
                     </DropdownMenuItem>
                   ) : null}
-                  {onAddToList ? (
+                  {onAddToList && contact.canAddToList ? (
                     <DropdownMenuItem onClick={() => onAddToList(contact)}>
                       Add to list
                     </DropdownMenuItem>
                   ) : null}
-                  {onUnsubscribe && contact.subscriptionStatus !== "unsubscribed" ? (
+                  {contact.canManage && onUnsubscribe && contact.subscriptionStatus !== "unsubscribed" ? (
                     <DropdownMenuItem onClick={() => onUnsubscribe(contact)}>
                       <UserMinus className="size-4" /> Unsubscribe
                     </DropdownMenuItem>
                   ) : null}
-                  {onDelete ? (
+                  {contact.canManage && onDelete ? (
                     <DropdownMenuItem variant="destructive" onClick={() => onDelete(contact)}>
                       <Trash2 className="size-4" /> Delete
                     </DropdownMenuItem>
@@ -170,7 +170,7 @@ export function ContactsTable({
             </TableCell>
             <TableCell className="hidden lg:table-cell">{formatDate(contact.createdAt)}</TableCell>
             <TableCell className="text-right">
-              {!showActions || !contact.canManage ? null : (
+              {!showActions || (!contact.canManage && !(onAddToList && contact.canAddToList)) ? null : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon-sm" aria-label="Contact actions">
@@ -178,22 +178,22 @@ export function ContactsTable({
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  {onEdit ? (
+                  {contact.canManage && onEdit ? (
                     <DropdownMenuItem onClick={() => onEdit(contact)}>
                       <Pencil className="size-4" /> Edit
                     </DropdownMenuItem>
                   ) : null}
-                  {onAddToList ? (
+                  {onAddToList && contact.canAddToList ? (
                     <DropdownMenuItem onClick={() => onAddToList(contact)}>
                       Add to list
                     </DropdownMenuItem>
                   ) : null}
-                  {onUnsubscribe && contact.subscriptionStatus !== "unsubscribed" ? (
+                  {contact.canManage && onUnsubscribe && contact.subscriptionStatus !== "unsubscribed" ? (
                     <DropdownMenuItem onClick={() => onUnsubscribe(contact)}>
                       <UserMinus className="size-4" /> Unsubscribe
                     </DropdownMenuItem>
                   ) : null}
-                  {onDelete ? (
+                  {contact.canManage && onDelete ? (
                     <DropdownMenuItem variant="destructive" onClick={() => onDelete(contact)}>
                       <Trash2 className="size-4" /> Delete
                     </DropdownMenuItem>

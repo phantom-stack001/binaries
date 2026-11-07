@@ -6,7 +6,7 @@ import { loadEnv } from "../env.js";
 import { AUDIT_ACTIONS } from "../lib/audit-taxonomy.js";
 import { validationError } from "../lib/http-errors.js";
 import { clientIpFromRequest, userAgentFromRequest } from "../lib/request-context.js";
-import { canViewAllRecipients, resolveRecipientOwnerId } from "../lib/org-workspace.js";
+import { canViewAllRecipients, isSuperAdminRole, resolveRecipientOwnerId } from "../lib/org-workspace.js";
 import { getSessionUser } from "../lib/session.js";
 import { recordAuditEvent } from "../services/audit-log.js";
 import { serializeContact } from "../services/contacts.js";
@@ -42,6 +42,7 @@ export function registerContactListRoutes(app: Hono) {
       db,
       canViewAllRecipients(user.role) ? null : ownerId,
       ownerId,
+      isSuperAdminRole(user.role),
     );
     return c.json({ lists });
   });
@@ -81,7 +82,7 @@ export function registerContactListRoutes(app: Hono) {
 
     const detail = await listContactsInList(db, canViewAll ? null : ownerId, params.data.id, 1, 1);
     const memberCount = detail?.pagination.total ?? 0;
-    return c.json({ list: serializeContactList(row, memberCount, row.userId === ownerId) });
+    return c.json({ list: serializeContactList(row, memberCount, isSuperAdminRole(user.role), row.userId === ownerId) });
   });
 
   app.patch("/api/contact-lists/:id", async (c) => {
@@ -97,7 +98,7 @@ export function registerContactListRoutes(app: Hono) {
 
     try {
       const ownerId = resolveRecipientOwnerId(user);
-      const updated = await updateContactList(db, ownerId, params.data.id, parsed.data, user.id);
+      const updated = await updateContactList(db, isSuperAdminRole(user.role) ? null : ownerId, params.data.id, parsed.data, user.id);
       if (!updated) return c.json({ error: "List not found" }, 404);
       if (updated.previousIsTestList !== updated.row.isTestList) {
         await recordAuditEvent(db, {
@@ -117,9 +118,9 @@ export function registerContactListRoutes(app: Hono) {
           metadata: { listId: updated.row.id, listName: updated.row.name },
         }).catch(() => undefined);
       }
-      const detail = await listContactsInList(db, ownerId, params.data.id, 1, 1);
+      const detail = await listContactsInList(db, null, params.data.id, 1, 1);
       return c.json({
-        list: serializeContactList(updated.row, detail?.pagination.total ?? 0),
+        list: serializeContactList(updated.row, detail?.pagination.total ?? 0, true, updated.row.userId === ownerId),
       });
     } catch (error) {
       if (error instanceof Error && error.message === "DUPLICATE_NAME") {
@@ -137,7 +138,7 @@ export function registerContactListRoutes(app: Hono) {
     if (!params.success) return c.json({ error: "List not found" }, 404);
 
     const ownerId = resolveRecipientOwnerId(user);
-    const deleted = await deleteContactList(db, ownerId, params.data.id, user.id);
+    const deleted = await deleteContactList(db, isSuperAdminRole(user.role) ? null : ownerId, params.data.id, user.id);
     if (!deleted) return c.json({ error: "List not found" }, 404);
     return c.json({ ok: true });
   });
@@ -162,9 +163,9 @@ export function registerContactListRoutes(app: Hono) {
     if (!result) return c.json({ error: "List not found" }, 404);
 
     return c.json({
-      list: serializeContactList(result.list, result.pagination.total, result.list.userId === ownerId),
+      list: serializeContactList(result.list, result.pagination.total, isSuperAdminRole(user.role), result.list.userId === ownerId),
       contacts: result.contacts.map((row) =>
-        serializeContact(row, { canManage: result.list.userId === ownerId }),
+        serializeContact(row, { canManage: isSuperAdminRole(user.role), canAddToList: result.list.userId === ownerId }),
       ),
       pagination: result.pagination,
     });
@@ -206,7 +207,7 @@ export function registerContactListRoutes(app: Hono) {
     }
 
     const ownerId = resolveRecipientOwnerId(user);
-    const removed = await removeContactFromList(db, ownerId, listId, contactId);
+    const removed = await removeContactFromList(db, isSuperAdminRole(user.role) ? null : ownerId, listId, contactId);
     if (!removed) return c.json({ error: "Not found" }, 404);
     return c.json({ ok: true });
   });
@@ -225,7 +226,7 @@ export function registerContactListRoutes(app: Hono) {
     const ownerId = resolveRecipientOwnerId(user);
     const result = await removeContactsFromList(
       db,
-      ownerId,
+      isSuperAdminRole(user.role) ? null : ownerId,
       params.data.id,
       parsed.data.contactIds,
     );

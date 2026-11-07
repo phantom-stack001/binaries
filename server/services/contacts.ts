@@ -36,7 +36,7 @@ function resolveSubscribedConsent(input: {
 
 export function serializeContact(
   row: ContactRow,
-  extras?: { listNames?: string[]; canManage?: boolean },
+  extras?: { listNames?: string[]; canManage?: boolean; canAddToList?: boolean },
 ) {
   return {
     id: row.id,
@@ -50,6 +50,7 @@ export function serializeContact(
     updatedAt: row.updatedAt.toISOString(),
     listNames: extras?.listNames ?? [],
     canManage: extras?.canManage ?? true,
+    canAddToList: extras?.canAddToList ?? true,
   };
 }
 
@@ -125,6 +126,7 @@ export async function listContacts(
     sort: "created_at_desc" | "created_at_asc" | "email_asc";
   },
   manageableOwnerId?: string,
+  canManageAll = false,
 ) {
   const offset = (options.page - 1) * options.limit;
   const conditions = userId ? [eq(contacts.userId, userId)] : [];
@@ -227,7 +229,8 @@ export async function listContacts(
     contacts: rows.map((row) =>
       serializeContact(row, {
         listNames: listNameMap.get(row.id) ?? [],
-        canManage: manageableOwnerId ? row.userId === manageableOwnerId : Boolean(userId),
+        canManage: canManageAll,
+        canAddToList: Boolean(manageableOwnerId && row.userId === manageableOwnerId),
       }),
     ),
     pagination: {
@@ -330,7 +333,7 @@ export async function createContact(
 
 export async function updateContact(
   db: Database,
-  userId: string,
+  userId: string | null,
   contactId: string,
   input: {
     email?: string;
@@ -347,6 +350,7 @@ export async function updateContact(
 ) {
   const existing = await getContactById(db, userId, contactId);
   if (!existing) return null;
+  const dataOwnerId = existing.userId;
 
   const nextEmail = input.email ? normalizeEmail(input.email) : existing.email;
   if (!isValidEmail(nextEmail)) {
@@ -356,7 +360,7 @@ export async function updateContact(
   const emailChanged = nextEmail !== existing.email;
   let nextStatus = input.subscriptionStatus ?? existing.subscriptionStatus;
 
-  const suppressed = await isEmailSuppressed(db, userId, nextEmail);
+  const suppressed = await isEmailSuppressed(db, dataOwnerId, nextEmail);
   if (suppressed) {
     nextStatus = "unsubscribed";
   }
@@ -378,14 +382,18 @@ export async function updateContact(
         subscriptionStatus: nextStatus,
         updatedAt: new Date(),
       })
-      .where(and(eq(contacts.id, contactId), eq(contacts.userId, userId)))
+      .where(
+        userId
+          ? and(eq(contacts.id, contactId), eq(contacts.userId, userId))
+          : eq(contacts.id, contactId),
+      )
       .returning();
 
     if (!row) return null;
 
     if (subscribing && consent) {
       await recordConsentEvent(db, {
-        userId,
+        userId: dataOwnerId,
         contactId: row.id,
         eventType: emailChanged ? "consent_updated" : "consent_granted",
         source: consent.consentSource,
@@ -397,7 +405,7 @@ export async function updateContact(
     await recordAuditEvent(db, {
       action: AUDIT_ACTIONS.contactUpdated,
       category: "CONTACT",
-      actorUserId: actorUserId ?? userId,
+      actorUserId: actorUserId ?? dataOwnerId,
       resourceType: "contact",
       resourceId: row.id,
     });
@@ -412,16 +420,16 @@ export async function updateContact(
   }
 }
 
-export async function deleteContact(db: Database, userId: string, contactId: string, actorUserId?: string) {
+export async function deleteContact(db: Database, userId: string | null, contactId: string, actorUserId?: string) {
   const [row] = await db
     .delete(contacts)
-    .where(and(eq(contacts.id, contactId), eq(contacts.userId, userId)))
-    .returning({ id: contacts.id });
+    .where(userId ? and(eq(contacts.id, contactId), eq(contacts.userId, userId)) : eq(contacts.id, contactId))
+    .returning({ id: contacts.id, userId: contacts.userId });
   if (row) {
     await recordAuditEvent(db, {
       action: AUDIT_ACTIONS.contactDeleted,
       category: "CONTACT",
-      actorUserId: actorUserId ?? userId,
+      actorUserId: actorUserId ?? row.userId,
       resourceType: "contact",
       resourceId: row.id,
     });
@@ -429,9 +437,10 @@ export async function deleteContact(db: Database, userId: string, contactId: str
   return row ?? null;
 }
 
-export async function unsubscribeContact(db: Database, userId: string, contactId: string) {
+export async function unsubscribeContact(db: Database, userId: string | null, contactId: string, actorUserId?: string) {
   const existing = await getContactById(db, userId, contactId);
   if (!existing) return null;
+  const dataOwnerId = existing.userId;
 
   const [row] = await db
     .update(contacts)
@@ -439,24 +448,36 @@ export async function unsubscribeContact(db: Database, userId: string, contactId
       subscriptionStatus: "unsubscribed",
       updatedAt: new Date(),
     })
-    .where(and(eq(contacts.id, contactId), eq(contacts.userId, userId)))
+    .where(
+      userId
+        ? and(eq(contacts.id, contactId), eq(contacts.userId, userId))
+        : eq(contacts.id, contactId),
+    )
     .returning();
 
   if (!row) return null;
 
   await recordConsentEvent(db, {
-    userId,
+    userId: dataOwnerId,
     contactId: row.id,
     eventType: "consent_withdrawn",
     source: "manual_unsubscribe",
     occurredAt: new Date(),
   });
 
+  await recordAuditEvent(db, {
+    action: AUDIT_ACTIONS.contactUpdated,
+    category: "CONTACT",
+    actorUserId: actorUserId ?? dataOwnerId,
+    resourceType: "contact",
+    resourceId: row.id,
+  });
+
   await db
     .insert(emailSuppressions)
     .values({
       id: crypto.randomUUID(),
-      userId,
+      userId: dataOwnerId,
       email: row.email,
       reason: "unsubscribed",
     })
@@ -470,29 +491,40 @@ export async function unsubscribeContact(db: Database, userId: string, contactId
 
 export async function bulkUnsubscribeContacts(
   db: Database,
-  userId: string,
+  userId: string | null,
   contactIds: string[],
+  actorUserId?: string,
 ) {
   const owned = await db
     .select({ id: contacts.id })
     .from(contacts)
-    .where(and(eq(contacts.userId, userId), inArray(contacts.id, contactIds)));
+    .where(userId ? and(eq(contacts.userId, userId), inArray(contacts.id, contactIds)) : inArray(contacts.id, contactIds));
 
   const ids = owned.map((row) => row.id);
   for (const id of ids) {
-    await unsubscribeContact(db, userId, id);
+    await unsubscribeContact(db, userId, id, actorUserId);
   }
   return { updated: ids.length };
 }
 
 export async function bulkDeleteContacts(
   db: Database,
-  userId: string,
+  userId: string | null,
   contactIds: string[],
+  actorUserId?: string,
 ) {
   const result = await db
     .delete(contacts)
-    .where(and(eq(contacts.userId, userId), inArray(contacts.id, contactIds)))
-    .returning({ id: contacts.id });
+    .where(userId ? and(eq(contacts.userId, userId), inArray(contacts.id, contactIds)) : inArray(contacts.id, contactIds))
+    .returning({ id: contacts.id, userId: contacts.userId });
+  for (const row of result) {
+    await recordAuditEvent(db, {
+      action: AUDIT_ACTIONS.contactDeleted,
+      category: "CONTACT",
+      actorUserId: actorUserId ?? row.userId,
+      resourceType: "contact",
+      resourceId: row.id,
+    });
+  }
   return { deleted: result.length };
 }

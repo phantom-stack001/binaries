@@ -21,7 +21,7 @@ export function canViewAllRecipients(role?: string | null) {
 
 /** Only administrator roles may perform destructive system actions. */
 export function canDeleteSystemData(role?: string | null) {
-  return canViewAllRecipients(role);
+  return isSuperAdminRole(role);
 }
 
 /** Resolve which user id owns contacts/lists/suppressions for this actor. */

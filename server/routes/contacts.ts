@@ -3,7 +3,7 @@ import type { Hono } from "hono";
 import { createLiveDb } from "../db/index.js";
 import { loadEnv } from "../env.js";
 import { validationError } from "../lib/http-errors.js";
-import { canViewAllRecipients, resolveRecipientOwnerId } from "../lib/org-workspace.js";
+import { canViewAllRecipients, isSuperAdminRole, resolveRecipientOwnerId } from "../lib/org-workspace.js";
 import { getSessionUser } from "../lib/session.js";
 import {
   bulkDeleteContacts,
@@ -54,7 +54,7 @@ export function registerContactRoutes(app: Hono) {
     });
     if (!parsed.success) return c.json(validationError(parsed.error), 400);
 
-    const result = await listContacts(db, viewOwnerId, parsed.data, ownerId);
+    const result = await listContacts(db, viewOwnerId, parsed.data, ownerId, isSuperAdminRole(user.role));
     return c.json(result);
   });
 
@@ -69,7 +69,7 @@ export function registerContactRoutes(app: Hono) {
 
     try {
       const row = await createContact(db, ownerId, parsed.data, user.id);
-      return c.json({ contact: serializeContact(row) }, 201);
+      return c.json({ contact: serializeContact(row, { canManage: isSuperAdminRole(user.role), canAddToList: true }) }, 201);
     } catch (error) {
       if (error instanceof Error) {
         if (error.message === "DUPLICATE_EMAIL") {
@@ -91,7 +91,7 @@ export function registerContactRoutes(app: Hono) {
     const viewOwnerId = canViewAllRecipients(user.role) ? null : ownerId;
     const row = await getContactById(db, viewOwnerId, params.data.id);
     if (!row) return c.json({ error: "Contact not found" }, 404);
-    return c.json({ contact: serializeContact(row, { canManage: row.userId === ownerId }) });
+    return c.json({ contact: serializeContact(row, { canManage: isSuperAdminRole(user.role) }) });
   });
 
   app.patch("/api/contacts/:id", async (c) => {
@@ -107,9 +107,9 @@ export function registerContactRoutes(app: Hono) {
     if (!parsed.success) return c.json(validationError(parsed.error), 400);
 
     try {
-      const row = await updateContact(db, ownerId, params.data.id, parsed.data, user.id);
+      const row = await updateContact(db, isSuperAdminRole(user.role) ? null : ownerId, params.data.id, parsed.data, user.id);
       if (!row) return c.json({ error: "Contact not found" }, 404);
-      return c.json({ contact: serializeContact(row) });
+      return c.json({ contact: serializeContact(row, { canManage: isSuperAdminRole(user.role), canAddToList: true }) });
     } catch (error) {
       if (error instanceof Error) {
         if (error.message === "DUPLICATE_EMAIL") {
@@ -128,7 +128,7 @@ export function registerContactRoutes(app: Hono) {
     const params = contactIdParamSchema.safeParse({ id: c.req.param("id") });
     if (!params.success) return c.json({ error: "Contact not found" }, 404);
 
-    const deleted = await deleteContact(db, ownerId, params.data.id, user.id);
+    const deleted = await deleteContact(db, isSuperAdminRole(user.role) ? null : ownerId, params.data.id, user.id);
     if (!deleted) return c.json({ error: "Contact not found" }, 404);
     return c.json({ ok: true });
   });
@@ -141,9 +141,9 @@ export function registerContactRoutes(app: Hono) {
     const params = contactIdParamSchema.safeParse({ id: c.req.param("id") });
     if (!params.success) return c.json({ error: "Contact not found" }, 404);
 
-    const row = await unsubscribeContact(db, ownerId, params.data.id);
+    const row = await unsubscribeContact(db, isSuperAdminRole(user.role) ? null : ownerId, params.data.id, user.id);
     if (!row) return c.json({ error: "Contact not found" }, 404);
-    return c.json({ contact: serializeContact(row) });
+    return c.json({ contact: serializeContact(row, { canManage: isSuperAdminRole(user.role), canAddToList: true }) });
   });
 
   app.post("/api/contacts/bulk/unsubscribe", async (c) => {
@@ -155,7 +155,7 @@ export function registerContactRoutes(app: Hono) {
     const parsed = bulkContactActionSchema.safeParse(body);
     if (!parsed.success) return c.json(validationError(parsed.error), 400);
 
-    const result = await bulkUnsubscribeContacts(db, ownerId, parsed.data.contactIds);
+    const result = await bulkUnsubscribeContacts(db, isSuperAdminRole(user.role) ? null : ownerId, parsed.data.contactIds, user.id);
     return c.json(result);
   });
 
@@ -168,7 +168,7 @@ export function registerContactRoutes(app: Hono) {
     const parsed = bulkContactActionSchema.safeParse(body);
     if (!parsed.success) return c.json(validationError(parsed.error), 400);
 
-    const result = await bulkDeleteContacts(db, ownerId, parsed.data.contactIds);
+    const result = await bulkDeleteContacts(db, isSuperAdminRole(user.role) ? null : ownerId, parsed.data.contactIds, user.id);
     return c.json(result);
   });
 }

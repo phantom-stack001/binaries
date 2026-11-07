@@ -22,7 +22,7 @@ import { withDatabaseDeadline } from "./lib/database-deadline.js";
 import { auditRequestContextFromHeaders } from "./lib/request-context.js";
 import { logStartup, safeErrorLabel } from "./lib/startup-log.js";
 import { getSessionUser } from "./lib/session.js";
-import { canDeleteSystemData } from "./lib/org-workspace.js";
+import { canDeleteSystemData, isSuperAdminRole } from "./lib/org-workspace.js";
 import { publicRegistrationSchema } from "./validation/admin-users.js";
 import { claimSignupCode, releaseSignupCodeClaim } from "./services/signup-codes.js";
 import { recordAudit } from "./services/audit-log.js";
@@ -65,6 +65,31 @@ function isDeleteOperation(path: string, method: string) {
     method === "DELETE" ||
     (method === "POST" &&
       (normalized === "/api/contacts/bulk/delete" || normalized.endsWith("/contacts/remove")))
+  );
+}
+
+function isAddToRecipientList(path: string, method: string) {
+  const normalized = (path.split("?")[0] ?? path).replace(/\/+$/, "") || "/";
+  return method === "POST" && /^\/api\/contact-lists\/[^/]+\/contacts$/.test(normalized);
+}
+
+function isRestrictedRecipientMutation(path: string, method: string) {
+  const normalized = (path.split("?")[0] ?? path).replace(/\/+$/, "") || "/";
+  const isRecipientRoute =
+    normalized === "/api/contacts" ||
+    normalized.startsWith("/api/contacts/") ||
+    normalized === "/api/contact-lists" ||
+    normalized.startsWith("/api/contact-lists/") ||
+    normalized === "/api/suppressions" ||
+    normalized.startsWith("/api/suppressions/");
+  if (!isRecipientRoute || ["GET", "HEAD", "OPTIONS"].includes(method)) return false;
+
+  return !(
+    (method === "POST" &&
+      (normalized === "/api/contacts" ||
+        normalized === "/api/contacts/import" ||
+        normalized === "/api/contacts/import/preview")) ||
+    isAddToRecipientList(normalized, method)
   );
 }
 
@@ -127,8 +152,11 @@ export function createSendStackApp(env: ServerEnv, options: CreateAppOptions = {
       if (isDeleteOperation(c.req.path, c.req.method)) {
         if (!account) return c.json({ error: "Unauthorized" }, 401);
         if (!canDeleteSystemData(account.role)) {
-          return c.json({ error: "Only admins and super admins can delete system data." }, 403);
+          return c.json({ error: "Only super admins can delete system data." }, 403);
         }
+      }
+      if (account && !isSuperAdminRole(account.role) && isRestrictedRecipientMutation(c.req.path, c.req.method)) {
+        return c.json({ error: "Only super admins can edit or remove recipients and lists." }, 403);
       }
       if (account) {
         const signedIn = account;
@@ -158,6 +186,7 @@ export function createSendStackApp(env: ServerEnv, options: CreateAppOptions = {
       const permission = permissionForRequest(c.req.path, c.req.method);
       if (!permission) return next();
       if (!account) return c.json({ error: "Unauthorized" }, 401);
+      if (isAddToRecipientList(c.req.path, c.req.method)) return next();
       const signedIn = account;
       const allowed = await withDatabaseDeadline(
         () => userHasPermission(liveDb(), signedIn, permission),

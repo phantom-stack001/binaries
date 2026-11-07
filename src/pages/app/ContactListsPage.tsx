@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
+import { useAuthorization } from "@/lib/authorization";
 import {
   createContactList,
   deleteContactList,
@@ -34,6 +35,7 @@ import {
 } from "@/lib/recipients-api";
 
 export function ContactListsPage() {
+  const { can } = useAuthorization();
   const [lists, setLists] = useState<ContactList[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -68,7 +70,7 @@ export function ContactListsPage() {
         <PageHeader
           title="Contact lists"
           description="Organize contacts into reusable lists."
-          actions={<Button onClick={() => setDialogOpen(true)}><Plus /> Create list</Button>}
+          actions={can("lists.create") ? <Button onClick={() => setDialogOpen(true)}><Plus /> Create list</Button> : null}
         />
         <RecipientsNav />
         {loading ? (

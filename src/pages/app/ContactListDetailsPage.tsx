@@ -124,7 +124,7 @@ export function ContactListDetailsPage() {
           actions={
             <>
               <Button variant="outline" asChild><Link to="/app/recipients/lists/">Back to lists</Link></Button>
-              {list?.canManage ? <Button onClick={openAddContacts}>Add contacts</Button> : null}
+              {list?.canAddContacts ? <Button onClick={openAddContacts}>Add contacts</Button> : null}
               {list?.canManage && selectedIds.size > 0 ? (
                 <Button variant="destructive" onClick={() => void removeSelected()}>Remove selected</Button>
               ) : null}
@@ -180,7 +180,7 @@ export function ContactListDetailsPage() {
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add contacts to list</DialogTitle>
-            <DialogDescription>Select contacts from your account to add to this list.</DialogDescription>
+              <DialogDescription>Select contacts you can manage to add to this list.</DialogDescription>
           </DialogHeader>
           <Input
             placeholder="Search by email"

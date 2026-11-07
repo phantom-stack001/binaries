@@ -23,6 +23,14 @@ const DELETE_PERMISSION_KEYS = [
   "campaigns.delete",
 ] as const satisfies readonly PermissionKey[];
 
+const NON_SUPER_ADMIN_RECIPIENT_RESTRICTIONS = [
+  ...DELETE_PERMISSION_KEYS,
+  "contacts.update",
+  "contacts.export",
+  "lists.create",
+  "lists.update",
+] as const satisfies readonly PermissionKey[];
+
 export async function seedAccessControl(db: Database) {
   await ensureOrgWorkspaceUser(db);
 
@@ -118,7 +126,11 @@ export async function permissionsForUser(
   }
 
   if (!canDeleteSystemData([...keys].join(","))) {
-    for (const permission of DELETE_PERMISSION_KEYS) permissions.delete(permission);
+    for (const permission of NON_SUPER_ADMIN_RECIPIENT_RESTRICTIONS) permissions.delete(permission);
+    permissions.add("contacts.read");
+    permissions.add("contacts.create");
+    permissions.add("contacts.import");
+    permissions.add("lists.read");
   }
   return permissions;
 }

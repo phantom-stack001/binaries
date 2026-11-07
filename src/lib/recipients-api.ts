@@ -12,6 +12,7 @@ export type Contact = {
   updatedAt: string;
   listNames: string[];
   canManage: boolean;
+  canAddToList: boolean;
 };
 
 export type ContactList = {
@@ -21,6 +22,7 @@ export type ContactList = {
   isTestList: boolean;
   memberCount: number;
   canManage: boolean;
+  canAddContacts: boolean;
   createdAt: string;
   updatedAt: string;
 };

@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuthorization } from "@/lib/authorization";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   addContactsToList,
@@ -52,6 +53,7 @@ import {
 } from "@/lib/recipients-api";
 
 export function RecipientsPage() {
+  const { can } = useAuthorization();
   const [stats, setStats] = useState<Awaited<ReturnType<typeof fetchContactStats>>["stats"] | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [lists, setLists] = useState<ContactList[]>([]);
@@ -189,9 +191,9 @@ export function RecipientsPage() {
               <Button variant="outline" asChild>
                 <Link to="/app/recipients/import/"><Upload /> Import CSV</Link>
               </Button>
-              <Button variant="outline" onClick={() => setListDialogOpen(true)}>
+              {can("lists.create") ? <Button variant="outline" onClick={() => setListDialogOpen(true)}>
                 <ListPlus /> Create list
-              </Button>
+              </Button> : null}
             </>
           }
         />
@@ -250,12 +252,12 @@ export function RecipientsPage() {
                 <Button size="sm" variant="outline" onClick={() => openAddToListDialog(Array.from(selectedIds))}>
                   Add to list
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => void bulkUnsubscribeContacts(Array.from(selectedIds)).then(reload)}>
+                {contacts.some((c) => selectedIds.has(c.id) && c.canManage) ? <Button size="sm" variant="outline" onClick={() => void bulkUnsubscribeContacts(Array.from(selectedIds)).then(reload)}>
                   Unsubscribe
-                </Button>
-                <Button size="sm" variant="destructive" onClick={() => void bulkDeleteContacts(Array.from(selectedIds)).then(reload)}>
+                </Button> : null}
+                {contacts.some((c) => selectedIds.has(c.id) && c.canManage) ? <Button size="sm" variant="destructive" onClick={() => void bulkDeleteContacts(Array.from(selectedIds)).then(reload)}>
                   Delete
-                </Button>
+                </Button> : null}
               </div>
             ) : null}
 
@@ -357,7 +359,7 @@ export function RecipientsPage() {
             aria-label="Select list"
           >
             <option value="">Select a list</option>
-            {lists.filter((list) => list.canManage).map((list) => (
+            {lists.filter((list) => list.canAddContacts).map((list) => (
               <option key={list.id} value={list.id}>{list.name}</option>
             ))}
           </select>

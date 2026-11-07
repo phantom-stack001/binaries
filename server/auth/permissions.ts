@@ -142,11 +142,7 @@ const EDITOR = [
 const CAMPAIGN_MANAGER = [
   ...EDITOR,
   "contacts.create",
-  "contacts.update",
   "contacts.import",
-  "contacts.export",
-  "lists.create",
-  "lists.update",
   "campaigns.create",
   "campaigns.update",
   "campaigns.prepare",
@@ -160,11 +156,6 @@ const CAMPAIGN_MANAGER = [
 
 const ADMIN = [
   ...CAMPAIGN_MANAGER,
-  "drafts.delete",
-  "templates.delete",
-  "contacts.delete",
-  "lists.delete",
-  "campaigns.delete",
   "users.read",
   "users.create",
   "users.update",
