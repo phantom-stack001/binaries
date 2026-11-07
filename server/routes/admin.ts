@@ -19,7 +19,10 @@ import {
 import { parseRoleKeys, type PermissionKey } from "../auth/permissions.js";
 import { userHasPermission } from "../services/access-control.js";
 import { permissionsForUser } from "../services/access-control.js";
+import { getAppFeatureSettings, updateAppFeatureSettings } from "../services/app-feature-settings.js";
 import { recordAccessDeniedAudit } from "../services/access-denied-audit.js";
+import { recordAuditEvent } from "../services/audit-log.js";
+import { AUDIT_ACTIONS } from "../lib/audit-taxonomy.js";
 import {
   acceptInvitation,
   createDirectUser,
@@ -73,6 +76,20 @@ const roleSchema = z.object({
   permissions: z.array(z.string()).max(80).default([]),
 });
 
+const appFeatureSettingsSchema = z.object({
+  features: z.object({
+    compose: z.boolean().optional(),
+    drafts: z.boolean().optional(),
+    campaigns: z.boolean().optional(),
+    recipients: z.boolean().optional(),
+    templates: z.boolean().optional(),
+    history: z.boolean().optional(),
+    roles: z.boolean().optional(),
+    auditLog: z.boolean().optional(),
+  }).optional(),
+  allowListCreation: z.boolean().optional(),
+});
+
 function json(c: Context, body: unknown, status: 200 | 400 | 401 | 403 | 404 | 409 | 429 | 500 | 502 = 200) {
   c.header("Cache-Control", "no-store");
   return c.json(body, status);
@@ -99,6 +116,36 @@ async function requirePermission(c: Context, permission: PermissionKey) {
 }
 
 export function registerAdminRoutes(app: Hono) {
+  app.get("/api/admin/feature-settings", async (c) => {
+    const account = await getSessionUser(c.req.raw.headers);
+    if (!account) return json(c, { error: "Unauthorized" }, 401);
+    if (!parseRoleKeys(account.role).includes("super-admin")) {
+      return json(c, { error: "Only a super admin can manage feature settings." }, 403);
+    }
+    return json(c, { settings: await getAppFeatureSettings(db) });
+  });
+
+  app.patch("/api/admin/feature-settings", async (c) => {
+    const account = await getSessionUser(c.req.raw.headers);
+    if (!account) return json(c, { error: "Unauthorized" }, 401);
+    if (!parseRoleKeys(account.role).includes("super-admin")) {
+      return json(c, { error: "Only a super admin can manage feature settings." }, 403);
+    }
+    const parsed = appFeatureSettingsSchema.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return json(c, validationError(parsed.error), 400);
+    const settings = await updateAppFeatureSettings(db, account.id, parsed.data);
+    await recordAuditEvent(db, {
+      action: AUDIT_ACTIONS.appFeatureSettingsUpdated,
+      category: "SETTINGS",
+      actorUserId: account.id,
+      actorEmail: account.email,
+      resourceType: "app_feature_settings",
+      resourceId: "global",
+      metadata: { updatedFeatures: Object.keys(parsed.data.features ?? {}), allowListCreation: parsed.data.allowListCreation },
+    });
+    return json(c, { settings });
+  });
+
   app.get("/api/admin/signup-codes", async (c) => {
     const account = await getSessionUser(c.req.raw.headers);
     if (!account) return json(c, { error: "Unauthorized" }, 401);
@@ -424,6 +471,7 @@ export function registerAdminRoutes(app: Hono) {
         twoFactorEnforcementAfter: security?.twoFactorEnforcementAfter ?? null,
       },
       permissions,
+      features: await getAppFeatureSettings(db),
     });
   });
 }

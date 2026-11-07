@@ -23,12 +23,12 @@ import {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { pathname } = useLocation();
   const { setOpenMobile } = useSidebar();
-  const { permissions } = useAuthorization();
+  const { permissions, features } = useAuthorization();
 
   useEffect(() => {
     setOpenMobile(false);
   }, [pathname, setOpenMobile]);
-  const groups = visibleDashboardNavGroups(permissions);
+  const groups = visibleDashboardNavGroups(permissions, features);
 
   const mark = APP_NAME.charAt(0).toUpperCase();
 

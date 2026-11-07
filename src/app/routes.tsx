@@ -25,6 +25,7 @@ import { RecipientsPage } from "@/pages/app/RecipientsPage";
 import { SuppressionsPage } from "@/pages/app/SuppressionsPage";
 import { AuditPage } from "@/pages/app/admin/AuditPage";
 import { RoleDetailsPage, RolesPage } from "@/pages/app/admin/RolesPage";
+import { FeatureSettingsPage } from "@/pages/app/admin/FeatureSettingsPage";
 import { UserDetailsPage } from "@/pages/app/admin/UserDetailsPage";
 import { CreateUserPage } from "@/pages/app/admin/CreateUserPage";
 import { UsersPage } from "@/pages/app/admin/UsersPage";
@@ -161,6 +162,7 @@ export const appRoutes = [
       { path: "admin/users/new/", element: <CreateUserPage /> },
       { path: "admin/users/:userId/", element: <UserDetailsPage /> },
       { path: "admin/roles/", element: <RolesPage /> },
+      { path: "admin/features/", element: <FeatureSettingsPage /> },
       { path: "admin/roles/new/", element: <RoleDetailsPage /> },
       { path: "admin/roles/:roleId/", element: <RoleDetailsPage /> },
       { path: "admin/audit/", element: <AuditPage /> },

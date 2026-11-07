@@ -23,6 +23,7 @@ import { auditRequestContextFromHeaders } from "./lib/request-context.js";
 import { logStartup, safeErrorLabel } from "./lib/startup-log.js";
 import { getSessionUser } from "./lib/session.js";
 import { canDeleteSystemData, isSuperAdminRole } from "./lib/org-workspace.js";
+import { getAppFeatureSettings } from "./services/app-feature-settings.js";
 import { publicRegistrationSchema } from "./validation/admin-users.js";
 import { claimSignupCode, releaseSignupCodeClaim } from "./services/signup-codes.js";
 import { recordAudit } from "./services/audit-log.js";
@@ -93,6 +94,18 @@ function isRestrictedRecipientMutation(path: string, method: string) {
   );
 }
 
+function featureForApiPath(path: string, method: string) {
+  const normalized = (path.split("?")[0] ?? path).replace(/\/+$/, "") || "/";
+  if (normalized === "/api/mail/send" && method === "POST") return "compose" as const;
+  if (normalized.startsWith("/api/drafts")) return "drafts" as const;
+  if (normalized.startsWith("/api/campaigns")) return "campaigns" as const;
+  if (normalized.startsWith("/api/contacts") || normalized.startsWith("/api/contact-lists") || normalized.startsWith("/api/suppressions")) return "recipients" as const;
+  if (normalized === "/api/mail/sends" && method === "GET") return "history" as const;
+  if (normalized.startsWith("/api/admin/roles") || normalized === "/api/admin/permissions") return "roles" as const;
+  if (normalized.startsWith("/api/admin/audit")) return "auditLog" as const;
+  return null;
+}
+
 export function createSendStackApp(env: ServerEnv, options: CreateAppOptions = {}): SendStackApp {
   const { db } = createDb(env);
   /** Prefer this after invalidateDbCache so middleware does not keep a dead client. */
@@ -148,6 +161,16 @@ export function createSendStackApp(env: ServerEnv, options: CreateAppOptions = {
       account = await getSessionUser(c.req.raw.headers);
       if (account && (account as { banned?: boolean | null }).banned) {
         return c.json({ error: accessDeniedMessage() }, 403);
+      }
+      if (account) {
+        const feature = featureForApiPath(c.req.path, c.req.method);
+        if (feature || (c.req.method === "POST" && /^\/api\/contact-lists\/?$/.test(c.req.path))) {
+          const settings = await withDatabaseDeadline(() => getAppFeatureSettings(liveDb()), "feature-settings");
+          if (feature && !settings.features[feature]) return c.json({ error: "This feature is currently disabled." }, 403);
+          if (c.req.method === "POST" && /^\/api\/contact-lists\/?$/.test(c.req.path) && !settings.allowListCreation) {
+            return c.json({ error: "Creating contact lists is currently disabled." }, 403);
+          }
+        }
       }
       if (isDeleteOperation(c.req.path, c.req.method)) {
         if (!account) return c.json({ error: "Unauthorized" }, 401);

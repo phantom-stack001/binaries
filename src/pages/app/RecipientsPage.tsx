@@ -53,7 +53,7 @@ import {
 } from "@/lib/recipients-api";
 
 export function RecipientsPage() {
-  const { can } = useAuthorization();
+  const { can, allowListCreation } = useAuthorization();
   const [stats, setStats] = useState<Awaited<ReturnType<typeof fetchContactStats>>["stats"] | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [lists, setLists] = useState<ContactList[]>([]);
@@ -191,7 +191,7 @@ export function RecipientsPage() {
               <Button variant="outline" asChild>
                 <Link to="/app/recipients/import/"><Upload /> Import CSV</Link>
               </Button>
-              {can("lists.create") ? <Button variant="outline" onClick={() => setListDialogOpen(true)}>
+              {can("lists.create") && allowListCreation ? <Button variant="outline" onClick={() => setListDialogOpen(true)}>
                 <ListPlus /> Create list
               </Button> : null}
             </>

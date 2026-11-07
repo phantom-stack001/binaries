@@ -16,6 +16,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+type DashboardFeature = "compose" | "drafts" | "campaigns" | "recipients" | "templates" | "history" | "roles" | "auditLog";
+
 const NAV_PREFIX_MATCHES: Record<string, string> = {
   "/app/compose/": "/app/compose/",
   "/app/inbox/": "/app/inbox/",
@@ -33,6 +35,7 @@ export type DashboardNavItem = {
   url: string;
   icon: LucideIcon;
   permission?: string;
+  feature?: DashboardFeature;
 };
 
 export type DashboardNavGroup = {
@@ -48,25 +51,25 @@ export const dashboardNavGroups: DashboardNavGroup[] = [
   {
     label: "Mail",
     items: [
-      { title: "Compose", url: "/app/compose/", icon: SquarePen },
+      { title: "Compose", url: "/app/compose/", icon: SquarePen, feature: "compose" },
       { title: "Inbox", url: "/app/inbox/", icon: Inbox, permission: "mailbox.read" },
       { title: "Sent", url: "/app/sent/", icon: Send, permission: "mailbox.read" },
-      { title: "Drafts", url: "/app/drafts/", icon: FileText },
+      { title: "Drafts", url: "/app/drafts/", icon: FileText, feature: "drafts" },
     ],
   },
   {
     label: "Campaigns",
     items: [
-      { title: "Campaigns", url: "/app/campaigns/", icon: Mail },
-      { title: "Recipients", url: "/app/recipients/", icon: Users },
-      { title: "Templates", url: "/app/templates/", icon: LayoutTemplate },
+      { title: "Campaigns", url: "/app/campaigns/", icon: Mail, feature: "campaigns" },
+      { title: "Recipients", url: "/app/recipients/", icon: Users, feature: "recipients" },
+      { title: "Templates", url: "/app/templates/", icon: LayoutTemplate, feature: "templates" },
     ],
   },
   {
     label: "System",
     items: [
       { title: "Queue", url: "/app/queue/", icon: ListOrdered },
-      { title: "History", url: "/app/history/", icon: History },
+      { title: "History", url: "/app/history/", icon: History, feature: "history" },
       { title: "Profile", url: "/app/settings/profile/", icon: UserRound },
       { title: "Security", url: "/app/settings/security/", icon: Shield },
       { title: "Mailbox", url: "/app/settings/", icon: Settings },
@@ -76,17 +79,21 @@ export const dashboardNavGroups: DashboardNavGroup[] = [
     label: "Administration",
     items: [
       { title: "Users", url: "/app/admin/users/", icon: Users, permission: "users.read" },
-      { title: "Roles", url: "/app/admin/roles/", icon: Shield, permission: "roles.read" },
-      { title: "Audit log", url: "/app/admin/audit/", icon: ScrollText, permission: "audit.read" },
+      { title: "Roles", url: "/app/admin/roles/", icon: Shield, permission: "roles.read", feature: "roles" },
+      { title: "Audit log", url: "/app/admin/audit/", icon: ScrollText, permission: "audit.read", feature: "auditLog" },
+      { title: "Features", url: "/app/admin/features/", icon: Settings, permission: "roles.update" },
     ],
   },
 ];
 
-export function visibleDashboardNavGroups(permissions: ReadonlySet<string>): DashboardNavGroup[] {
+export function visibleDashboardNavGroups(permissions: ReadonlySet<string>, features?: Record<string, boolean>): DashboardNavGroup[] {
   return dashboardNavGroups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => !item.permission || permissions.has(item.permission)),
+      items: group.items.filter((item) =>
+        (!item.permission || permissions.has(item.permission)) &&
+        (!item.feature || features?.[item.feature] !== false),
+      ),
     }))
     .filter((group) => group.items.length > 0);
 }

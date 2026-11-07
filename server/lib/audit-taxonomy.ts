@@ -63,6 +63,7 @@ export const AUDIT_ACTIONS = {
   contactListDeleted: "contact_list_deleted",
   recipientListMarkedTest: "recipient_list_marked_test",
   recipientListUnmarkedTest: "recipient_list_unmarked_test",
+  appFeatureSettingsUpdated: "app_feature_settings_updated",
   testMessageListSendRequested: "test_message_list_send_requested",
   testMessageListSendCompleted: "test_message_list_send_completed",
   testMessageListSendFailed: "test_message_list_send_failed",

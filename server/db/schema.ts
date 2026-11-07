@@ -676,3 +676,11 @@ export const mailDeliverySettings = pgTable(
   },
   (table) => [check("mail_delivery_settings_provider_check", sql`${table.provider} in ('resend', 'spacemail')`)],
 );
+
+export const appFeatureSettings = pgTable("app_feature_settings", {
+  id: text("id").primaryKey(),
+  features: jsonb("features").$type<Record<string, boolean>>().notNull(),
+  allowListCreation: boolean("allow_list_creation").notNull().default(true),
+  updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
