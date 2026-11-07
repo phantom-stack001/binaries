@@ -6,7 +6,7 @@ import { auth } from "./auth/auth.js";
 import { authTrustedOrigins } from "./auth/origins.js";
 import { permissionForRequest } from "./auth/permissions.js";
 import { AUDIT_ACTIONS } from "./lib/audit-taxonomy.js";
-import { createDb, probeDatabase, type Database } from "./db/index.js";
+import { createDb, getDb, probeDatabase, type Database } from "./db/index.js";
 import { appUserRoles, user } from "./db/schema.js";
 import type { ServerEnv } from "./env.js";
 import { loadEnv } from "./env.js";
@@ -61,7 +61,7 @@ export type CreateAppOptions = {
 export function createSendStackApp(env: ServerEnv, options: CreateAppOptions = {}): SendStackApp {
   const { db } = createDb(env);
   /** Prefer this after invalidateDbCache so middleware does not keep a dead client. */
-  const liveDb = () => createDb(env).db;
+  const liveDb = () => getDb(env);
   const app = new Hono();
 
   const allowedBrowserOrigins = new Set(authTrustedOrigins(env.FRONTEND_URL));

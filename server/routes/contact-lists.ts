@@ -1,7 +1,7 @@
 import type { Hono } from "hono";
 import { z } from "zod";
 
-import { createDb } from "../db/index.js";
+import { createLiveDb } from "../db/index.js";
 import { loadEnv } from "../env.js";
 import { AUDIT_ACTIONS } from "../lib/audit-taxonomy.js";
 import { validationError } from "../lib/http-errors.js";
@@ -29,7 +29,7 @@ import {
 } from "../validation/contacts.js";
 
 const env = loadEnv();
-const { db } = createDb(env);
+const db = createLiveDb(env);
 
 const listIdParamSchema = z.object({ id: z.string().uuid() });
 

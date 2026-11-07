@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 
-import { createDb } from "../db/index.js";
+import { createLiveDb } from "../db/index.js";
 import { loadEnv } from "../env.js";
 import { validationError } from "../lib/http-errors.js";
 import { resolveRecipientOwnerId } from "../lib/org-workspace.js";
@@ -16,7 +16,7 @@ import {
 } from "../validation/contacts.js";
 
 const env = loadEnv();
-const { db } = createDb(env);
+const db = createLiveDb(env);
 
 export function registerSuppressionRoutes(app: Hono) {
   app.get("/api/suppressions", async (c) => {

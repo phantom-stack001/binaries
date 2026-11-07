@@ -3,7 +3,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter";
 import { admin, haveIBeenPwned, twoFactor } from "better-auth/plugins";
 
 import { sendstackAccessControl, sendstackAdminRoles } from "./access.js";
-import { createDb } from "../db/index.js";
+import { createLiveDb } from "../db/index.js";
 import * as schema from "../db/schema.js";
 import { loadEnv } from "../env.js";
 import { getAppName } from "../lib/brand.js";
@@ -17,7 +17,7 @@ import { authTrustedOrigins } from "./origins.js";
 import { sendWithActiveMailProvider } from "../services/mail-provider.js";
 
 const env = loadEnv();
-const { db } = createDb(env);
+const db = createLiveDb(env);
 
 const isProduction = env.NODE_ENV === "production" || env.BETTER_AUTH_URL.startsWith("https://");
 

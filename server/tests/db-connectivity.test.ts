@@ -4,7 +4,7 @@ import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 
 import { fetchWithStartupRetry } from "../../src/lib/dev-session-fetch.js";
-import { closeDb, createDb } from "../db/index.js";
+import { closeDb, createDb, createLiveDb, getDb, invalidateDbCache } from "../db/index.js";
 import { loadEnv } from "../env.js";
 import { validateDatabaseUrl } from "../lib/database-url.js";
 import {
@@ -28,6 +28,10 @@ describe("database error classification", () => {
     expect(classifyDatabaseError(Object.assign(new Error("getaddrinfo ENOTFOUND"), { code: "ENOTFOUND" }))).toEqual({
       kind: "dns",
       code: "ENOTFOUND",
+    });
+    expect(classifyDatabaseError(Object.assign(new Error("connection ended"), { code: "CONNECTION_ENDED" }))).toEqual({
+      kind: "reset",
+      code: "CONNECTION_ENDED",
     });
   });
 
@@ -140,6 +144,23 @@ describe("shared database pool", () => {
     const second = createDb(env, { cache: true });
     expect(second.client).toBe(first.client);
     expect(second.db).toBe(first.db);
+    await closeDb();
+  });
+
+  it("opens a fresh client after invalidateDbCache and keeps createLiveDb forwarding", async () => {
+    const env = loadEnv();
+    const live = createLiveDb(env);
+    const first = createDb(env, { cache: true });
+    expect(getDb(env)).toBe(first.db);
+    expect(live.select).toBeTypeOf("function");
+
+    invalidateDbCache();
+    const second = createDb(env, { cache: true });
+    expect(second.client).not.toBe(first.client);
+    expect(getDb(env)).toBe(second.db);
+    expect(live.select).toBeTypeOf("function");
+    expect(live.select).not.toBe(first.db.select);
+
     await closeDb();
   });
 });

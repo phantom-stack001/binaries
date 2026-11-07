@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 
-import { createDb } from "../db/index.js";
+import { createLiveDb } from "../db/index.js";
 import { loadEnv } from "../env.js";
 import { validationError } from "../lib/http-errors.js";
 import { clientIpFromRequest, userAgentFromRequest } from "../lib/request-context.js";
@@ -8,7 +8,7 @@ import { getSessionUser } from "../lib/session.js";
 import { pageViewBodySchema, recordPageViewActivity } from "../services/page-view-activity.js";
 
 const env = loadEnv();
-const { db } = createDb(env);
+const db = createLiveDb(env);
 
 export function registerActivityRoutes(app: Hono) {
   app.post("/api/activity/page-view", async (c) => {

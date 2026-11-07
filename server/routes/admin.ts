@@ -2,7 +2,7 @@ import type { Context, Hono } from "hono";
 import { z } from "zod";
 
 import { accessDeniedMessage } from "../lib/brand.js";
-import { createDb } from "../db/index.js";
+import { createLiveDb } from "../db/index.js";
 import { loadEnv } from "../env.js";
 import { validationError } from "../lib/http-errors.js";
 import { adminSetPasswordSchema, createUserSchema, manualEmailVerificationSchema } from "../validation/admin-users.js";
@@ -49,7 +49,7 @@ import {
 } from "../services/signup-codes.js";
 
 const env = loadEnv();
-const { db } = createDb(env);
+const db = createLiveDb(env);
 
 const inviteSchema = z.object({
   email: z.email(),

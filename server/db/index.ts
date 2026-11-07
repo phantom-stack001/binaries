@@ -114,6 +114,25 @@ export function invalidateDbCache() {
 
 export type Database = ReturnType<typeof createDb>["db"];
 
+/** Always resolve through the process cache so callers survive `invalidateDbCache()`. */
+export function getDb(env: DbEnv): Database {
+  return createDb(env, { cache: true }).db;
+}
+
+/**
+ * Stable Drizzle handle for Better Auth. Method calls forward to the current
+ * cached pool, so ending a wedged client does not leave auth on a dead socket.
+ */
+export function createLiveDb(env: DbEnv): Database {
+  return new Proxy({} as Database, {
+    get(_target, prop, _receiver) {
+      const current = getDb(env);
+      const value = Reflect.get(current, prop, current);
+      return typeof value === "function" ? value.bind(current) : value;
+    },
+  });
+}
+
 const HEALTH_DATABASE_MS = 5_000;
 
 /**

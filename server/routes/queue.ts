@@ -1,6 +1,6 @@
 import type { Hono } from "hono";
 
-import { createDb } from "../db/index.js";
+import { createLiveDb } from "../db/index.js";
 import { loadEnv } from "../env.js";
 import { validationError } from "../lib/http-errors.js";
 import { getSessionUser } from "../lib/session.js";
@@ -28,7 +28,7 @@ import {
 } from "../validation/queue.js";
 
 const env = loadEnv();
-const { db } = createDb(env);
+const db = createLiveDb(env);
 
 export function registerQueueRoutes(app: Hono) {
   app.get("/api/queue/overview", async (c) => {

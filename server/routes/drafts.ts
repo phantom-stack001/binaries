@@ -1,7 +1,7 @@
 import type { Hono } from "hono";
 import { z } from "zod";
 
-import { createDb } from "../db/index.js";
+import { createLiveDb } from "../db/index.js";
 import { loadEnv } from "../env.js";
 import { getSessionUser } from "../lib/session.js";
 import { AUDIT_ACTIONS } from "../lib/audit-taxonomy.js";
@@ -22,7 +22,7 @@ import {
 } from "../validation/drafts.js";
 
 const env = loadEnv();
-const { db } = createDb(env);
+const db = createLiveDb(env);
 
 function validationError(error: z.ZodError) {
   return {

@@ -5,7 +5,7 @@ import { z } from "zod";
 import { auth } from "../auth/auth.js";
 import { parseRoleKeys } from "../auth/permissions.js";
 import { AUDIT_ACTIONS } from "../lib/audit-taxonomy.js";
-import { createDb } from "../db/index.js";
+import { createLiveDb } from "../db/index.js";
 import { user } from "../db/schema.js";
 import { loadEnv } from "../env.js";
 import { defaultTwoFactorEnforcementDate, loadAccountSecurityState } from "../lib/account-security.js";
@@ -18,7 +18,7 @@ import { recordAudit } from "../services/audit-log.js";
 import { selfProfileAuditMetadata, updateAccountProfileSchema } from "../validation/account-profile.js";
 
 const env = loadEnv();
-const { db } = createDb(env);
+const db = createLiveDb(env);
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1),

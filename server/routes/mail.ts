@@ -1,7 +1,7 @@
 import type { Context, Hono } from "hono";
 
 import { accessDeniedMessage } from "../lib/brand.js";
-import { createDb } from "../db/index.js";
+import { createLiveDb } from "../db/index.js";
 import { loadEnv } from "../env.js";
 import { validationError } from "../lib/http-errors.js";
 import { parseRoleKeys, type PermissionKey } from "../auth/permissions.js";
@@ -29,7 +29,7 @@ import { recordAuditEvent } from "../services/audit-log.js";
 import { mailboxFolderSchema, mailPageQuerySchema, mailUidSchema, testSendSchema, individualSendSchema, individualSendListQuerySchema } from "../validation/mail.js";
 
 const env = loadEnv();
-const { db } = createDb(env);
+const db = createLiveDb(env);
 
 /**
  * Direct mailbox access for the configured account.

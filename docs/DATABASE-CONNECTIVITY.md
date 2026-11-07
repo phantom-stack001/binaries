@@ -75,9 +75,11 @@ postgres.js takes `connect_timeout` in **seconds**. `DATABASE_CONNECT_TIMEOUT_MS
 
 Vercel also sets connection GUCs (`statement_timeout`, `lock_timeout`) on the request pool. Those GUCs are best-effort through Neon’s transaction pooler and are not a substitute for application deadlines.
 
-Session, Better Auth, and API middleware DB work (account security + permission checks) use an **8 second rejecting deadline** via `withDatabaseDeadline`. On timeout the API returns **503** `database_unavailable` and calls `invalidateDbCache()` so the next `createDb()` opens a fresh socket instead of reusing a wedged connection. Middleware always reads `db` through `createDb(env)` after that invalidation.
+Session, Better Auth, and API middleware DB work (account security + permission checks) use an **8 second rejecting deadline** via `withDatabaseDeadline`. On timeout the API returns **503** `database_unavailable` and calls `invalidateDbCache()` so the next `createDb()` / `getDb()` opens a fresh socket instead of reusing a wedged connection.
 
-**Better Auth adapter note:** `server/auth/auth.ts` binds Drizzle once at module load. Ending the cached client aborts hung queries, but that module-held adapter may keep a stale handle until the Vercel isolate is recycled. Middleware and other `createDb()` callers recover on the next request; auth may keep failing fast with infrastructure errors until cold start. That is preferred over burning the full 120s function limit.
+Better Auth and API route modules hold a **live** Drizzle handle (`createLiveDb`): method calls always forward to the current cached pool. After `invalidateDbCache()` ends a wedged client, the next query uses the new pool without waiting for a cold start.
+
+`getSessionUser` retries **once** after a `reset` or `timeout` failure (invalidating the cache on `reset`; timeout already invalidates inside the deadline helper). SQL and authentication errors are not retried.
 
 The health probe uses its own short-lived client (`fetch_types: false`, 4s statement timeout) and a 5–6 second overall deadline — it never shares the request pool.
 
