@@ -14,9 +14,14 @@ export function isSuperAdminRole(role?: string | null) {
 }
 
 /** Admin roles can inspect recipient lists owned by any account. */
-export function canViewAllRecipientLists(role?: string | null) {
+export function canViewAllRecipients(role?: string | null) {
   const roles = parseRoleKeys(role);
   return roles.includes("admin") || roles.includes("super-admin");
+}
+
+/** Only administrator roles may perform destructive system actions. */
+export function canDeleteSystemData(role?: string | null) {
+  return canViewAllRecipients(role);
 }
 
 /** Resolve which user id owns contacts/lists/suppressions for this actor. */

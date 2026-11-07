@@ -36,7 +36,7 @@ function resolveSubscribedConsent(input: {
 
 export function serializeContact(
   row: ContactRow,
-  extras?: { listNames?: string[] },
+  extras?: { listNames?: string[]; canManage?: boolean },
 ) {
   return {
     id: row.id,
@@ -49,6 +49,7 @@ export function serializeContact(
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     listNames: extras?.listNames ?? [],
+    canManage: extras?.canManage ?? true,
   };
 }
 
@@ -83,14 +84,14 @@ async function isEmailSuppressed(db: Database, userId: string, email: string) {
   return Boolean(row);
 }
 
-export async function getContactStats(db: Database, userId: string) {
+export async function getContactStats(db: Database, userId: string | null) {
   const rows = await db
     .select({
       status: contacts.subscriptionStatus,
       count: sql<number>`count(*)::int`,
     })
     .from(contacts)
-    .where(eq(contacts.userId, userId))
+    .where(userId ? eq(contacts.userId, userId) : undefined)
     .groupBy(contacts.subscriptionStatus);
 
   const stats = {
@@ -114,7 +115,7 @@ export async function getContactStats(db: Database, userId: string) {
 
 export async function listContacts(
   db: Database,
-  userId: string,
+  userId: string | null,
   options: {
     page: number;
     limit: number;
@@ -123,9 +124,10 @@ export async function listContacts(
     listId?: string;
     sort: "created_at_desc" | "created_at_asc" | "email_asc";
   },
+  manageableOwnerId?: string,
 ) {
   const offset = (options.page - 1) * options.limit;
-  const conditions = [eq(contacts.userId, userId)];
+  const conditions = userId ? [eq(contacts.userId, userId)] : [];
 
   if (options.status === "subscribed") {
     conditions.push(eq(contacts.subscriptionStatus, "subscribed"));
@@ -145,15 +147,16 @@ export async function listContacts(
     );
   }
 
-  const whereClause = and(...conditions);
-
   if (options.listId) {
     const members = await db
       .select({ contactId: contactListMembers.contactId })
       .from(contactListMembers)
       .innerJoin(contactLists, eq(contactLists.id, contactListMembers.listId))
       .where(
-        and(eq(contactListMembers.listId, options.listId), eq(contactLists.userId, userId)),
+        and(
+          eq(contactListMembers.listId, options.listId),
+          userId ? eq(contactLists.userId, userId) : undefined,
+        ),
       );
     const memberIds = members.map((row) => row.contactId);
     if (memberIds.length === 0) {
@@ -169,6 +172,8 @@ export async function listContacts(
     }
     conditions.push(inArray(contacts.id, memberIds));
   }
+
+  const whereClause = and(...conditions);
 
   const orderBy =
     options.sort === "email_asc"
@@ -204,7 +209,7 @@ export async function listContacts(
       .innerJoin(contactLists, eq(contactLists.id, contactListMembers.listId))
       .where(
         and(
-          eq(contactLists.userId, userId),
+          userId ? eq(contactLists.userId, userId) : undefined,
           inArray(contactListMembers.contactId, contactIds),
         ),
       );
@@ -220,7 +225,10 @@ export async function listContacts(
 
   return {
     contacts: rows.map((row) =>
-      serializeContact(row, { listNames: listNameMap.get(row.id) ?? [] }),
+      serializeContact(row, {
+        listNames: listNameMap.get(row.id) ?? [],
+        canManage: manageableOwnerId ? row.userId === manageableOwnerId : Boolean(userId),
+      }),
     ),
     pagination: {
       page: options.page,
@@ -231,11 +239,11 @@ export async function listContacts(
   };
 }
 
-export async function getContactById(db: Database, userId: string, contactId: string) {
+export async function getContactById(db: Database, userId: string | null, contactId: string) {
   const [row] = await db
     .select()
     .from(contacts)
-    .where(and(eq(contacts.id, contactId), eq(contacts.userId, userId)))
+    .where(userId ? and(eq(contacts.id, contactId), eq(contacts.userId, userId)) : eq(contacts.id, contactId))
     .limit(1);
   return row ?? null;
 }

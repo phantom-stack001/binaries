@@ -3,7 +3,7 @@ import type { Hono } from "hono";
 import { createLiveDb } from "../db/index.js";
 import { loadEnv } from "../env.js";
 import { validationError } from "../lib/http-errors.js";
-import { resolveRecipientOwnerId } from "../lib/org-workspace.js";
+import { canViewAllRecipients, resolveRecipientOwnerId } from "../lib/org-workspace.js";
 import { getSessionUser } from "../lib/session.js";
 import {
   bulkDeleteContacts,
@@ -33,7 +33,8 @@ export function registerContactRoutes(app: Hono) {
     const user = await getSessionUser(c.req.raw.headers);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
     const ownerId = resolveRecipientOwnerId(user);
-    const stats = await getContactStats(db, ownerId);
+    const viewOwnerId = c.req.query("scope") === "all" && canViewAllRecipients(user.role) ? null : ownerId;
+    const stats = await getContactStats(db, viewOwnerId);
     return c.json({ stats });
   });
 
@@ -41,6 +42,7 @@ export function registerContactRoutes(app: Hono) {
     const user = await getSessionUser(c.req.raw.headers);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
     const ownerId = resolveRecipientOwnerId(user);
+    const viewOwnerId = c.req.query("scope") === "all" && canViewAllRecipients(user.role) ? null : ownerId;
 
     const parsed = listContactsQuerySchema.safeParse({
       page: c.req.query("page"),
@@ -52,7 +54,7 @@ export function registerContactRoutes(app: Hono) {
     });
     if (!parsed.success) return c.json(validationError(parsed.error), 400);
 
-    const result = await listContacts(db, ownerId, parsed.data);
+    const result = await listContacts(db, viewOwnerId, parsed.data, ownerId);
     return c.json(result);
   });
 
@@ -86,9 +88,10 @@ export function registerContactRoutes(app: Hono) {
     const params = contactIdParamSchema.safeParse({ id: c.req.param("id") });
     if (!params.success) return c.json({ error: "Contact not found" }, 404);
 
-    const row = await getContactById(db, ownerId, params.data.id);
+    const viewOwnerId = canViewAllRecipients(user.role) ? null : ownerId;
+    const row = await getContactById(db, viewOwnerId, params.data.id);
     if (!row) return c.json({ error: "Contact not found" }, 404);
-    return c.json({ contact: serializeContact(row) });
+    return c.json({ contact: serializeContact(row, { canManage: row.userId === ownerId }) });
   });
 
   app.patch("/api/contacts/:id", async (c) => {

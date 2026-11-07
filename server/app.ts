@@ -22,6 +22,7 @@ import { withDatabaseDeadline } from "./lib/database-deadline.js";
 import { auditRequestContextFromHeaders } from "./lib/request-context.js";
 import { logStartup, safeErrorLabel } from "./lib/startup-log.js";
 import { getSessionUser } from "./lib/session.js";
+import { canDeleteSystemData } from "./lib/org-workspace.js";
 import { publicRegistrationSchema } from "./validation/admin-users.js";
 import { claimSignupCode, releaseSignupCodeClaim } from "./services/signup-codes.js";
 import { recordAudit } from "./services/audit-log.js";
@@ -57,6 +58,15 @@ export type CreateAppOptions = {
   /** Persist system roles. Long-running server only — never on the Vercel request path. */
   seedAccess?: boolean;
 };
+
+function isDeleteOperation(path: string, method: string) {
+  const normalized = (path.split("?")[0] ?? path).replace(/\/+$/, "") || "/";
+  return (
+    method === "DELETE" ||
+    (method === "POST" &&
+      (normalized === "/api/contacts/bulk/delete" || normalized.endsWith("/contacts/remove")))
+  );
+}
 
 export function createSendStackApp(env: ServerEnv, options: CreateAppOptions = {}): SendStackApp {
   const { db } = createDb(env);
@@ -113,6 +123,12 @@ export function createSendStackApp(env: ServerEnv, options: CreateAppOptions = {
       account = await getSessionUser(c.req.raw.headers);
       if (account && (account as { banned?: boolean | null }).banned) {
         return c.json({ error: accessDeniedMessage() }, 403);
+      }
+      if (isDeleteOperation(c.req.path, c.req.method)) {
+        if (!account) return c.json({ error: "Unauthorized" }, 401);
+        if (!canDeleteSystemData(account.role)) {
+          return c.json({ error: "Only admins and super admins can delete system data." }, 403);
+        }
       }
       if (account) {
         const signedIn = account;

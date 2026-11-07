@@ -76,13 +76,14 @@ export function RecipientsPage() {
 
   const fetchData = useCallback(() => {
     return Promise.all([
-      fetchContactStats(),
+      fetchContactStats("all"),
       fetchContacts({
         page,
         limit: 25,
         q: q.trim() || undefined,
         status: status || undefined,
         listId: listId || undefined,
+        scope: "all",
       }),
       fetchContactLists(),
     ]).then(([statsRes, contactsRes, listsRes]) => {
@@ -121,7 +122,10 @@ export function RecipientsPage() {
   }, [fetchData, fetchKey]);
 
   const allSelected = useMemo(
-    () => contacts.length > 0 && contacts.every((c) => selectedIds.has(c.id)),
+    () => {
+      const manageable = contacts.filter((contact) => contact.canManage);
+      return manageable.length > 0 && manageable.every((contact) => selectedIds.has(contact.id));
+    },
     [contacts, selectedIds],
   );
 
@@ -265,6 +269,7 @@ export function RecipientsPage() {
               <ContactsTable
                 contacts={contacts}
                 selectedIds={selectedIds}
+                selectable={(contact) => contact.canManage}
                 onToggleSelect={(id) => {
                   setSelectedIds((prev) => {
                     const next = new Set(prev);
@@ -275,7 +280,7 @@ export function RecipientsPage() {
                 }}
                 onToggleSelectAll={() => {
                   if (allSelected) setSelectedIds(new Set());
-                  else setSelectedIds(new Set(contacts.map((c) => c.id)));
+                  else setSelectedIds(new Set(contacts.filter((c) => c.canManage).map((c) => c.id)));
                 }}
                 allSelected={allSelected}
                 onEdit={(contact) => { setEditing(contact); setDialogOpen(true); }}
@@ -352,7 +357,7 @@ export function RecipientsPage() {
             aria-label="Select list"
           >
             <option value="">Select a list</option>
-            {lists.map((list) => (
+            {lists.filter((list) => list.canManage).map((list) => (
               <option key={list.id} value={list.id}>{list.name}</option>
             ))}
           </select>

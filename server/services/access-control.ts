@@ -11,7 +11,17 @@ import {
 } from "../auth/permissions.js";
 import type { Database } from "../db/index.js";
 import { appPermissions, appRolePermissions, appRoles, appUserRoles, user } from "../db/schema.js";
-import { ensureOrgWorkspaceUser } from "../lib/org-workspace.js";
+import { canDeleteSystemData, ensureOrgWorkspaceUser } from "../lib/org-workspace.js";
+
+const DELETE_PERMISSION_KEYS = [
+  "users.delete",
+  "roles.delete",
+  "drafts.delete",
+  "templates.delete",
+  "contacts.delete",
+  "lists.delete",
+  "campaigns.delete",
+] as const satisfies readonly PermissionKey[];
 
 export async function seedAccessControl(db: Database) {
   await ensureOrgWorkspaceUser(db);
@@ -96,17 +106,21 @@ export async function permissionsForUser(
         .where(inArray(appRolePermissions.roleId, roleIds))
     : [];
 
+  const permissions = new Set<PermissionKey>();
   if (stored.length > 0) {
-    return new Set(stored.map((row) => row.key as PermissionKey));
+    for (const row of stored) permissions.add(row.key as PermissionKey);
+  } else {
+    for (const key of keys) {
+      const template = ROLE_TEMPLATES[key as SystemRoleKey];
+      if (!template) continue;
+      for (const permission of template.permissions) permissions.add(permission);
+    }
   }
 
-  const fallback = new Set<PermissionKey>();
-  for (const key of keys) {
-    const template = ROLE_TEMPLATES[key as SystemRoleKey];
-    if (!template) continue;
-    for (const permission of template.permissions) fallback.add(permission);
+  if (!canDeleteSystemData([...keys].join(","))) {
+    for (const permission of DELETE_PERMISSION_KEYS) permissions.delete(permission);
   }
-  return fallback;
+  return permissions;
 }
 
 export async function userHasPermission(

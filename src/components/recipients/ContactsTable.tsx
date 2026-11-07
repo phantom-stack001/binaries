@@ -39,7 +39,7 @@ type ContactsTableProps = {
   onUnsubscribe?: (contact: Contact) => void;
   onAddToList?: (contact: Contact) => void;
   showActions?: boolean;
-  selectable?: boolean;
+  selectable?: boolean | ((contact: Contact) => boolean);
 };
 
 export function ContactsTable({
@@ -55,6 +55,9 @@ export function ContactsTable({
   showActions = true,
   selectable = true,
 }: ContactsTableProps) {
+  const contactIsSelectable = (contact: Contact) =>
+    typeof selectable === "function" ? selectable(contact) : selectable;
+
   return (
     <>
       <ul className="divide-y md:hidden">
@@ -64,7 +67,7 @@ export function ContactsTable({
             className="size-5"
             aria-label="Select all contacts"
             checked={allSelected}
-            disabled={!selectable}
+            disabled={!contacts.some(contactIsSelectable)}
             onChange={onToggleSelectAll}
           />
           <span className="text-sm">Select all</span>
@@ -76,7 +79,7 @@ export function ContactsTable({
               className="mt-1 size-5 shrink-0"
               aria-label={`Select ${contact.email}`}
               checked={selectedIds.has(contact.id)}
-              disabled={!selectable}
+              disabled={!contactIsSelectable(contact)}
               onChange={() => onToggleSelect(contact.id)}
             />
             <div className="min-w-0 flex-1 space-y-1">
@@ -85,8 +88,9 @@ export function ContactsTable({
               <Badge variant={contactStatusBadgeVariant(contact.subscriptionStatus)}>
                 {contactStatusLabel(contact.subscriptionStatus)}
               </Badge>
+              {!contact.canManage ? <Badge variant="secondary">View only</Badge> : null}
             </div>
-            {showActions ? (
+            {showActions && contact.canManage ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="size-11 shrink-0" aria-label="Contact actions">
@@ -129,7 +133,7 @@ export function ContactsTable({
               type="checkbox"
               aria-label="Select all contacts"
               checked={allSelected}
-              disabled={!selectable}
+              disabled={!contacts.some(contactIsSelectable)}
               onChange={onToggleSelectAll}
             />
           </TableHead>
@@ -149,7 +153,7 @@ export function ContactsTable({
                 type="checkbox"
                 aria-label={`Select ${contact.email}`}
                 checked={selectedIds.has(contact.id)}
-                disabled={!selectable}
+                disabled={!contactIsSelectable(contact)}
                 onChange={() => onToggleSelect(contact.id)}
               />
             </TableCell>
@@ -159,13 +163,14 @@ export function ContactsTable({
               <Badge variant={contactStatusBadgeVariant(contact.subscriptionStatus)}>
                 {contactStatusLabel(contact.subscriptionStatus)}
               </Badge>
+              {!contact.canManage ? <Badge variant="secondary">View only</Badge> : null}
             </TableCell>
             <TableCell className="hidden max-w-[180px] truncate md:table-cell">
               {contact.listNames.length ? contact.listNames.join(", ") : "—"}
             </TableCell>
             <TableCell className="hidden lg:table-cell">{formatDate(contact.createdAt)}</TableCell>
             <TableCell className="text-right">
-              {!showActions ? null : (
+              {!showActions || !contact.canManage ? null : (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon-sm" aria-label="Contact actions">

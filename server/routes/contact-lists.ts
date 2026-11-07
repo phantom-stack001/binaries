@@ -6,7 +6,7 @@ import { loadEnv } from "../env.js";
 import { AUDIT_ACTIONS } from "../lib/audit-taxonomy.js";
 import { validationError } from "../lib/http-errors.js";
 import { clientIpFromRequest, userAgentFromRequest } from "../lib/request-context.js";
-import { canViewAllRecipientLists, resolveRecipientOwnerId } from "../lib/org-workspace.js";
+import { canViewAllRecipients, resolveRecipientOwnerId } from "../lib/org-workspace.js";
 import { getSessionUser } from "../lib/session.js";
 import { recordAuditEvent } from "../services/audit-log.js";
 import { serializeContact } from "../services/contacts.js";
@@ -40,7 +40,7 @@ export function registerContactListRoutes(app: Hono) {
     const ownerId = resolveRecipientOwnerId(user);
     const lists = await listContactLists(
       db,
-      canViewAllRecipientLists(user.role) ? null : ownerId,
+      canViewAllRecipients(user.role) ? null : ownerId,
       ownerId,
     );
     return c.json({ lists });
@@ -75,7 +75,7 @@ export function registerContactListRoutes(app: Hono) {
     if (!params.success) return c.json({ error: "List not found" }, 404);
 
     const ownerId = resolveRecipientOwnerId(user);
-    const canViewAll = canViewAllRecipientLists(user.role);
+    const canViewAll = canViewAllRecipients(user.role);
     const row = await getContactListById(db, canViewAll ? null : ownerId, params.data.id);
     if (!row) return c.json({ error: "List not found" }, 404);
 
@@ -154,7 +154,7 @@ export function registerContactListRoutes(app: Hono) {
     const ownerId = resolveRecipientOwnerId(user);
     const result = await listContactsInList(
       db,
-      canViewAllRecipientLists(user.role) ? null : ownerId,
+      canViewAllRecipients(user.role) ? null : ownerId,
       params.data.id,
       page,
       limit,
@@ -163,7 +163,9 @@ export function registerContactListRoutes(app: Hono) {
 
     return c.json({
       list: serializeContactList(result.list, result.pagination.total, result.list.userId === ownerId),
-      contacts: result.contacts.map((row) => serializeContact(row)),
+      contacts: result.contacts.map((row) =>
+        serializeContact(row, { canManage: result.list.userId === ownerId }),
+      ),
       pagination: result.pagination,
     });
   });

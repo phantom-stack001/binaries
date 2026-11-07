@@ -11,6 +11,7 @@ export type Contact = {
   createdAt: string;
   updatedAt: string;
   listNames: string[];
+  canManage: boolean;
 };
 
 export type ContactList = {
@@ -57,9 +58,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-export function fetchContactStats() {
+export function fetchContactStats(scope?: "all") {
   return request<{ stats: { total: number; subscribed: number; unsubscribed: number; pending: number; unknown: number } }>(
-    "/api/contacts/stats",
+    `/api/contacts/stats${scope ? `?scope=${scope}` : ""}`,
   );
 }
 
@@ -70,6 +71,7 @@ export function fetchContacts(params: {
   status?: "subscribed" | "unsubscribed";
   listId?: string;
   sort?: string;
+  scope?: "all";
 }) {
   const search = new URLSearchParams();
   if (params.page) search.set("page", String(params.page));
@@ -78,6 +80,7 @@ export function fetchContacts(params: {
   if (params.status) search.set("status", params.status);
   if (params.listId) search.set("listId", params.listId);
   if (params.sort) search.set("sort", params.sort);
+  if (params.scope) search.set("scope", params.scope);
   return request<{
     contacts: Contact[];
     pagination: { page: number; limit: number; total: number; totalPages: number };

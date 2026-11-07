@@ -135,25 +135,20 @@ const EDITOR = [
   ...READ_ONLY,
   "drafts.create",
   "drafts.update",
-  "drafts.delete",
   "templates.create",
   "templates.update",
-  "templates.delete",
 ] as const satisfies readonly PermissionKey[];
 
 const CAMPAIGN_MANAGER = [
   ...EDITOR,
   "contacts.create",
   "contacts.update",
-  "contacts.delete",
   "contacts.import",
   "contacts.export",
   "lists.create",
   "lists.update",
-  "lists.delete",
   "campaigns.create",
   "campaigns.update",
-  "campaigns.delete",
   "campaigns.prepare",
   "campaigns.cancel",
   "queue.enqueue",
@@ -165,6 +160,11 @@ const CAMPAIGN_MANAGER = [
 
 const ADMIN = [
   ...CAMPAIGN_MANAGER,
+  "drafts.delete",
+  "templates.delete",
+  "contacts.delete",
+  "lists.delete",
+  "campaigns.delete",
   "users.read",
   "users.create",
   "users.update",
@@ -208,7 +208,7 @@ export const ROLE_TEMPLATES: Record<SystemRoleKey, { name: string; description: 
   },
   "campaign-manager": {
     name: "Campaign manager",
-    description: "Create and manage campaigns, recipients, and simulation queue actions.",
+    description: "Create and update campaigns and recipients, and manage simulation queue actions.",
     permissions: CAMPAIGN_MANAGER,
   },
   editor: {
