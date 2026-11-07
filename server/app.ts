@@ -103,7 +103,8 @@ export function createSendStackApp(env: ServerEnv, options: CreateAppOptions = {
     if (
       c.req.path.startsWith("/api/auth") ||
       c.req.path === "/api/health" ||
-      c.req.path === "/api/ping"
+      c.req.path === "/api/ping" ||
+      c.req.path === "/api/build-version"
     ) {
       return next();
     }
@@ -165,6 +166,13 @@ export function createSendStackApp(env: ServerEnv, options: CreateAppOptions = {
       }
       throw error;
     }
+  });
+
+  app.get("/api/build-version", (c) => {
+    c.header("Cache-Control", "no-store");
+    return c.json({
+      buildId: process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.VERCEL_DEPLOYMENT_ID ?? "local",
+    });
   });
 
   registerHealthRoutes(app, {

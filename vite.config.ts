@@ -8,6 +8,11 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  define: {
+    __APP_BUILD_ID__: JSON.stringify(
+      process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.VERCEL_DEPLOYMENT_ID ?? "local",
+    ),
+  },
   server: {
     proxy: {
       "/api": {

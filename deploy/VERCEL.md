@@ -63,6 +63,11 @@ Use repository defaults from `vercel.json`:
 
 ## Post-deploy checks
 
+The Vercel deployment commit is embedded in the client build. Open app sessions check
+`/api/build-version` every minute and show a refresh prompt when a newer deployment
+is live. SPA routes are served with `no-store` so a refresh loads the current app
+shell; fingerprinted `/assets/` files remain cacheable as immutable.
+
 Replace `https://your-domain.example` with your deployment URL:
 
 ```bash
