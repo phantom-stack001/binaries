@@ -48,7 +48,10 @@ export function createDb(env: DbEnv, options?: { cache?: boolean }) {
     connectTimeoutMs: connectTimeoutSec * 1000,
   });
 
-  const max = serverless ? 1 : (env.DATABASE_POOL_MAX ?? 10);
+  // Advisory-lock transactions pin a connection while send workflows run.
+  // Test-list sends can persist results from five concurrent workers, while
+  // auth and other API requests still need connections in the same instance.
+  const max = serverless ? 8 : (env.DATABASE_POOL_MAX ?? 10);
   const development = env.NODE_ENV === "development" && !serverless;
   // max_pipeline is a runtime postgres.js option (not in published typings).
   // Neon transaction pooler + default pipeline depth can hang indefinitely on Vercel.

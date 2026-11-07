@@ -27,6 +27,7 @@ import { AUDIT_ACTIONS } from "../lib/audit-taxonomy.js";
 import { clientIpFromRequest, userAgentFromRequest } from "../lib/request-context.js";
 import { recordAuditEvent } from "../services/audit-log.js";
 import { mailboxFolderSchema, mailPageQuerySchema, mailUidSchema, testSendSchema, individualSendSchema, individualSendListQuerySchema } from "../validation/mail.js";
+import { classifyDatabaseError } from "../lib/db-errors.js";
 
 const env = loadEnv();
 const db = createLiveDb(env);
@@ -239,6 +240,7 @@ export function registerMailRoutes(app: Hono) {
         });
       } catch (error) {
         logPhase("test_list_send_failed");
+        if (classifyDatabaseError(error)) throw error;
         if (error instanceof MailboxError) {
           return json(c, { error: error.message, code: publicSmtpCode(error) }, error.status);
         }
