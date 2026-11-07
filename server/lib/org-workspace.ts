@@ -13,6 +13,12 @@ export function isSuperAdminRole(role?: string | null) {
   return parseRoleKeys(role).includes("super-admin");
 }
 
+/** Admin roles can inspect recipient lists owned by any account. */
+export function canViewAllRecipientLists(role?: string | null) {
+  const roles = parseRoleKeys(role);
+  return roles.includes("admin") || roles.includes("super-admin");
+}
+
 /** Resolve which user id owns contacts/lists/suppressions for this actor. */
 export function resolveRecipientOwnerId(actor: { id: string; role?: string | null }): string {
   return isSuperAdminRole(actor.role) ? ORG_WORKSPACE_USER_ID : actor.id;

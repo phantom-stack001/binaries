@@ -19,6 +19,7 @@ export type ContactList = {
   description: string;
   isTestList: boolean;
   memberCount: number;
+  canManage: boolean;
   createdAt: string;
   updatedAt: string;
 };

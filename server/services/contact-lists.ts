@@ -8,6 +8,7 @@ import { recordAuditEvent } from "./audit-log.js";
 export function serializeContactList(
   row: typeof contactLists.$inferSelect,
   memberCount: number,
+  canManage = true,
 ) {
   return {
     id: row.id,
@@ -15,16 +16,17 @@ export function serializeContactList(
     description: row.description,
     isTestList: row.isTestList,
     memberCount,
+    canManage,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
 }
 
-export async function listContactLists(db: Database, userId: string) {
+export async function listContactLists(db: Database, userId: string | null, manageableOwnerId?: string) {
   const rows = await db
     .select()
     .from(contactLists)
-    .where(eq(contactLists.userId, userId))
+    .where(userId ? eq(contactLists.userId, userId) : undefined)
     .orderBy(desc(contactLists.updatedAt));
 
   const counts = await db
@@ -34,19 +36,21 @@ export async function listContactLists(db: Database, userId: string) {
     })
     .from(contactListMembers)
     .innerJoin(contactLists, eq(contactLists.id, contactListMembers.listId))
-    .where(eq(contactLists.userId, userId))
+    .where(userId ? eq(contactLists.userId, userId) : undefined)
     .groupBy(contactListMembers.listId);
 
   const countMap = new Map(counts.map((row) => [row.listId, row.count]));
 
-  return rows.map((row) => serializeContactList(row, countMap.get(row.id) ?? 0));
+  return rows.map((row) =>
+    serializeContactList(row, countMap.get(row.id) ?? 0, manageableOwnerId ? row.userId === manageableOwnerId : true),
+  );
 }
 
-export async function getContactListById(db: Database, userId: string, listId: string) {
+export async function getContactListById(db: Database, userId: string | null, listId: string) {
   const [row] = await db
     .select()
     .from(contactLists)
-    .where(and(eq(contactLists.id, listId), eq(contactLists.userId, userId)))
+    .where(userId ? and(eq(contactLists.id, listId), eq(contactLists.userId, userId)) : eq(contactLists.id, listId))
     .limit(1);
   return row ?? null;
 }
@@ -148,7 +152,7 @@ export async function deleteContactList(db: Database, userId: string, listId: st
 
 export async function listContactsInList(
   db: Database,
-  userId: string,
+  userId: string | null,
   listId: string,
   page: number,
   limit: number,
@@ -164,7 +168,7 @@ export async function listContactsInList(
       .from(contactListMembers)
       .innerJoin(contacts, eq(contacts.id, contactListMembers.contactId))
       .where(
-        and(eq(contactListMembers.listId, listId), eq(contacts.userId, userId)),
+        and(eq(contactListMembers.listId, listId), eq(contacts.userId, list.userId)),
       )
       .orderBy(desc(contacts.createdAt))
       .limit(limit)
@@ -174,7 +178,7 @@ export async function listContactsInList(
       .from(contactListMembers)
       .innerJoin(contacts, eq(contacts.id, contactListMembers.contactId))
       .where(
-        and(eq(contactListMembers.listId, listId), eq(contacts.userId, userId)),
+        and(eq(contactListMembers.listId, listId), eq(contacts.userId, list.userId)),
       ),
   ]);
 

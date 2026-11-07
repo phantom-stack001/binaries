@@ -39,6 +39,7 @@ type ContactsTableProps = {
   onUnsubscribe?: (contact: Contact) => void;
   onAddToList?: (contact: Contact) => void;
   showActions?: boolean;
+  selectable?: boolean;
 };
 
 export function ContactsTable({
@@ -52,6 +53,7 @@ export function ContactsTable({
   onUnsubscribe,
   onAddToList,
   showActions = true,
+  selectable = true,
 }: ContactsTableProps) {
   return (
     <>
@@ -62,6 +64,7 @@ export function ContactsTable({
             className="size-5"
             aria-label="Select all contacts"
             checked={allSelected}
+            disabled={!selectable}
             onChange={onToggleSelectAll}
           />
           <span className="text-sm">Select all</span>
@@ -73,6 +76,7 @@ export function ContactsTable({
               className="mt-1 size-5 shrink-0"
               aria-label={`Select ${contact.email}`}
               checked={selectedIds.has(contact.id)}
+              disabled={!selectable}
               onChange={() => onToggleSelect(contact.id)}
             />
             <div className="min-w-0 flex-1 space-y-1">
@@ -125,6 +129,7 @@ export function ContactsTable({
               type="checkbox"
               aria-label="Select all contacts"
               checked={allSelected}
+              disabled={!selectable}
               onChange={onToggleSelectAll}
             />
           </TableHead>
@@ -144,6 +149,7 @@ export function ContactsTable({
                 type="checkbox"
                 aria-label={`Select ${contact.email}`}
                 checked={selectedIds.has(contact.id)}
+                disabled={!selectable}
                 onChange={() => onToggleSelect(contact.id)}
               />
             </TableCell>

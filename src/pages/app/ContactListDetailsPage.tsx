@@ -124,15 +124,15 @@ export function ContactListDetailsPage() {
           actions={
             <>
               <Button variant="outline" asChild><Link to="/app/recipients/lists/">Back to lists</Link></Button>
-              <Button onClick={openAddContacts}>Add contacts</Button>
-              {selectedIds.size > 0 ? (
+              {list?.canManage ? <Button onClick={openAddContacts}>Add contacts</Button> : null}
+              {list?.canManage && selectedIds.size > 0 ? (
                 <Button variant="destructive" onClick={() => void removeSelected()}>Remove selected</Button>
               ) : null}
             </>
           }
         />
         <RecipientsNav />
-        {list ? (
+        {list?.canManage ? (
           <label className="mb-4 flex items-start gap-2 text-sm">
             <input
               type="checkbox"
@@ -157,6 +157,7 @@ export function ContactListDetailsPage() {
               <ContactsTable
                 contacts={contacts}
                 selectedIds={selectedIds}
+                selectable={Boolean(list?.canManage)}
                 onToggleSelect={(id) => setSelectedIds((prev) => {
                   const next = new Set(prev);
                   if (next.has(id)) next.delete(id);

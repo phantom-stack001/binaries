@@ -88,8 +88,9 @@ export function ContactListsPage() {
                     </CardTitle>
                     <p className="text-sm text-muted-foreground">{list.memberCount} contacts</p>
                     {list.isTestList ? <Badge variant="outline">Test list</Badge> : null}
+                    {!list.canManage ? <Badge variant="secondary">View only</Badge> : null}
                   </div>
-                  <div className="flex items-center gap-1">
+                  {list.canManage ? <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -100,7 +101,7 @@ export function ContactListsPage() {
                     <Button variant="ghost" size="icon-sm" onClick={() => setPendingDelete(list)} aria-label="Delete list">
                     <Trash2 />
                   </Button>
-                  </div>
+                  </div> : null}
                 </CardHeader>
                 {list.description ? (
                   <CardContent className="pt-0 text-sm text-muted-foreground">{list.description}</CardContent>

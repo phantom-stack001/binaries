@@ -6,7 +6,7 @@ import { loadEnv } from "../env.js";
 import { AUDIT_ACTIONS } from "../lib/audit-taxonomy.js";
 import { validationError } from "../lib/http-errors.js";
 import { clientIpFromRequest, userAgentFromRequest } from "../lib/request-context.js";
-import { resolveRecipientOwnerId } from "../lib/org-workspace.js";
+import { canViewAllRecipientLists, resolveRecipientOwnerId } from "../lib/org-workspace.js";
 import { getSessionUser } from "../lib/session.js";
 import { recordAuditEvent } from "../services/audit-log.js";
 import { serializeContact } from "../services/contacts.js";
@@ -38,7 +38,11 @@ export function registerContactListRoutes(app: Hono) {
     const user = await getSessionUser(c.req.raw.headers);
     if (!user) return c.json({ error: "Unauthorized" }, 401);
     const ownerId = resolveRecipientOwnerId(user);
-    const lists = await listContactLists(db, ownerId);
+    const lists = await listContactLists(
+      db,
+      canViewAllRecipientLists(user.role) ? null : ownerId,
+      ownerId,
+    );
     return c.json({ lists });
   });
 
@@ -71,12 +75,13 @@ export function registerContactListRoutes(app: Hono) {
     if (!params.success) return c.json({ error: "List not found" }, 404);
 
     const ownerId = resolveRecipientOwnerId(user);
-    const row = await getContactListById(db, ownerId, params.data.id);
+    const canViewAll = canViewAllRecipientLists(user.role);
+    const row = await getContactListById(db, canViewAll ? null : ownerId, params.data.id);
     if (!row) return c.json({ error: "List not found" }, 404);
 
-    const detail = await listContactsInList(db, ownerId, params.data.id, 1, 1);
+    const detail = await listContactsInList(db, canViewAll ? null : ownerId, params.data.id, 1, 1);
     const memberCount = detail?.pagination.total ?? 0;
-    return c.json({ list: serializeContactList(row, memberCount) });
+    return c.json({ list: serializeContactList(row, memberCount, row.userId === ownerId) });
   });
 
   app.patch("/api/contact-lists/:id", async (c) => {
@@ -147,11 +152,17 @@ export function registerContactListRoutes(app: Hono) {
     const page = Number(c.req.query("page") ?? "1");
     const limit = Number(c.req.query("limit") ?? "25");
     const ownerId = resolveRecipientOwnerId(user);
-    const result = await listContactsInList(db, ownerId, params.data.id, page, limit);
+    const result = await listContactsInList(
+      db,
+      canViewAllRecipientLists(user.role) ? null : ownerId,
+      params.data.id,
+      page,
+      limit,
+    );
     if (!result) return c.json({ error: "List not found" }, 404);
 
     return c.json({
-      list: serializeContactList(result.list, result.pagination.total),
+      list: serializeContactList(result.list, result.pagination.total, result.list.userId === ownerId),
       contacts: result.contacts.map((row) => serializeContact(row)),
       pagination: result.pagination,
     });
