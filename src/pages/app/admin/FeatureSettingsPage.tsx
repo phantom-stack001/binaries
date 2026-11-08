@@ -24,6 +24,7 @@ type Settings = {
 export function FeatureSettingsPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -33,7 +34,8 @@ export function FeatureSettingsPage() {
         if (!response.ok) throw new Error(payload.error ?? "Could not load feature settings.");
         setSettings(payload.settings);
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not load feature settings."));
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not load feature settings."))
+      .finally(() => setLoading(false));
   }, []);
 
   const save = async (change: { features?: Partial<Settings["features"]>; allowListCreation?: boolean }) => {
@@ -84,7 +86,9 @@ export function FeatureSettingsPage() {
       <AppPageContainer width="wide">
         <PageHeader title="Feature settings" description="Control which application areas are available to users. Changes apply across the app." />
         {error ? <p role="alert" className="mb-4 text-sm text-destructive">{error}</p> : null}
-        {!settings ? <p className="text-sm text-muted-foreground">Loading feature settings…</p> : (
+        {loading ? <p className="text-sm text-muted-foreground">Loading feature settings…</p> : null}
+        {!loading && !settings && !error ? <p className="text-sm text-muted-foreground">Feature settings are unavailable.</p> : null}
+        {!loading && settings ? (
           <div className="space-y-5">
             <Card>
               <CardHeader>
@@ -111,7 +115,7 @@ export function FeatureSettingsPage() {
               </CardContent>
             </Card>
           </div>
-        )}
+        ) : null}
       </AppPageContainer>
     </>
   );
