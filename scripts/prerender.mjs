@@ -1,12 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(__dirname, "../dist");
 const templatePath = path.join(distDir, "index.html");
 
-const { render } = await import(path.join(distDir, "server/entry-server.js"));
+const { render } = await import(pathToFileURL(path.join(distDir, "server/entry-server.js")).href);
 
 const routes = ["/", "/privacy/", "/terms/", "/login/", "/app/"];
 const template = fs.readFileSync(templatePath, "utf8");

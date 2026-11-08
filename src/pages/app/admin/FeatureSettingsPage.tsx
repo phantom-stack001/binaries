@@ -36,7 +36,7 @@ export function FeatureSettingsPage() {
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not load feature settings."));
   }, []);
 
-  const save = async (change: Partial<Settings>) => {
+  const save = async (change: { features?: Partial<Settings["features"]>; allowListCreation?: boolean }) => {
     if (!settings || busy) return;
     setBusy(true);
     setError(null);
@@ -96,7 +96,7 @@ export function FeatureSettingsPage() {
                   title,
                   description,
                   settings.features[key],
-                  () => void save({ features: { [key]: !settings.features[key] } }),
+                  () => void save({ features: { [key]: !settings.features[key] } as Partial<Settings["features"]> }),
                 ))}
               </CardContent>
             </Card>
