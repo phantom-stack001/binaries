@@ -49,7 +49,7 @@ async function requireMailbox(c: Context, permission: PermissionKey) {
   if ((user as { banned?: boolean | null }).banned) {
     return { response: json(c, { error: accessDeniedMessage() }, 403) };
   }
-  const allowed = await userHasPermission(db, user, permission);
+  const allowed = parseRoleKeys(user.role).includes("super-admin") || await userHasPermission(db, user, permission);
   if (!allowed) {
     return { response: json(c, { error: "You do not have permission to use the mailbox." }, 403) };
   }

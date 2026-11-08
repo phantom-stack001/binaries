@@ -13,7 +13,18 @@ export const DEFAULT_APP_FEATURES = {
   auditLog: true,
 } as const;
 
-const SUPER_ADMIN_NAV = ["mailbox.read", "mailbox.send", "users.read", "roles.read", "audit.read"];
+const SUPER_ADMIN_NAV = [
+  "mailbox.read", "mailbox.manage_connection", "mailbox.send_test", "mailbox.send",
+  "users.read", "users.create", "users.update", "users.deactivate", "users.delete", "users.invite",
+  "users.reset_password", "users.manage_sessions", "roles.read", "roles.create", "roles.update",
+  "roles.delete", "roles.assign", "permissions.read", "permissions.manage", "drafts.read", "drafts.create",
+  "drafts.update", "drafts.delete", "templates.read", "templates.create", "templates.update", "templates.delete",
+  "contacts.read", "contacts.create", "contacts.update", "contacts.delete", "contacts.import", "contacts.export",
+  "lists.read", "lists.create", "lists.update", "lists.delete", "campaigns.read", "campaigns.create",
+  "campaigns.update", "campaigns.delete", "campaigns.prepare", "campaigns.cancel", "queue.read", "queue.enqueue",
+  "queue.pause", "queue.resume", "queue.cancel", "queue.retry", "history.read", "settings.read", "settings.update",
+  "audit.read",
+];
 
 export function useAuthorization() {
   const { data: session } = authClient.useSession();
@@ -44,9 +55,10 @@ export function useAuthorization() {
     };
   }, [role]);
 
-  const permissions = new Set(
-    serverPermissions ?? (role.split(",").includes("super-admin") ? SUPER_ADMIN_NAV : []),
-  );
+  const permissions = new Set(serverPermissions ?? []);
+  if (role.split(",").includes("super-admin")) {
+    for (const permission of SUPER_ADMIN_NAV) permissions.add(permission);
+  }
 
   return {
     permissions,

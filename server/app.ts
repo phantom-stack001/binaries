@@ -209,6 +209,7 @@ export function createSendStackApp(env: ServerEnv, options: CreateAppOptions = {
       const permission = permissionForRequest(c.req.path, c.req.method);
       if (!permission) return next();
       if (!account) return c.json({ error: "Unauthorized" }, 401);
+      if (isSuperAdminRole(account.role)) return next();
       if (isAddToRecipientList(c.req.path, c.req.method)) return next();
       const signedIn = account;
       const allowed = await withDatabaseDeadline(
