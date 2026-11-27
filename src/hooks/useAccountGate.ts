@@ -35,7 +35,9 @@ export function useAccountGate(): AccountGate {
       return;
     }
     let cancelled = false;
-    fetch("/api/me", { credentials: "include" })
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 20_000);
+    fetch("/api/account/security", { credentials: "include", signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json().catch(() => ({}));
         if (cancelled) return;
@@ -44,17 +46,20 @@ export function useAccountGate(): AccountGate {
           return;
         }
         setRemote({
-          mustChangePassword: Boolean(payload.user?.mustChangePassword),
-          twoFactorEnforcementRequired: Boolean(payload.user?.twoFactorEnforcementRequired),
+          mustChangePassword: Boolean(payload.security?.mustChangePassword),
+          twoFactorEnforcementRequired: Boolean(payload.security?.twoFactorEnforcementRequired),
         });
       })
       .catch(() => {
         if (!cancelled) {
           setRemote({ mustChangePassword: false, twoFactorEnforcementRequired: false });
         }
-      });
+      })
+      .finally(() => window.clearTimeout(timeout));
     return () => {
       cancelled = true;
+      window.clearTimeout(timeout);
+      controller.abort();
     };
   }, [isPending, userId, refreshKey]);
 

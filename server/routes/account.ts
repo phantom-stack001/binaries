@@ -14,6 +14,7 @@ import { validationError } from "../lib/http-errors.js";
 import { validatePassword } from "../lib/password-policy.js";
 import { clientIpFromRequest, userAgentFromRequest } from "../lib/request-context.js";
 import { getSessionUser } from "../lib/session.js";
+import { withDatabaseDeadline } from "../lib/database-deadline.js";
 import { recordAudit } from "../services/audit-log.js";
 import { selfProfileAuditMetadata, updateAccountProfileSchema } from "../validation/account-profile.js";
 
@@ -88,7 +89,10 @@ export function registerAccountRoutes(app: Hono) {
   app.get("/api/account/security", async (c) => {
     const account = await getSessionUser(c.req.raw.headers);
     if (!account) return json(c, { error: "Unauthorized" }, 401);
-    const state = await loadAccountSecurityState(db, account.id);
+    const state = await withDatabaseDeadline(
+      () => loadAccountSecurityState(db, account.id),
+      "account-security-status",
+    );
     if (!state) return json(c, { error: "Unauthorized" }, 401);
     return json(c, {
       security: {
