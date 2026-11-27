@@ -185,12 +185,12 @@ export function RecipientsPage() {
           description="Manage your contacts and recipient lists."
           actions={
             <>
-              <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
+              {can("contacts.create") ? <Button onClick={() => { setEditing(null); setDialogOpen(true); }}>
                 <Plus /> Add contact
-              </Button>
-              <Button variant="outline" asChild>
+              </Button> : null}
+              {can("contacts.import") ? <Button variant="outline" asChild>
                 <Link to="/app/recipients/import/"><Upload /> Import CSV</Link>
-              </Button>
+              </Button> : null}
               {can("lists.create") && allowListCreation ? <Button variant="outline" onClick={() => setListDialogOpen(true)}>
                 <ListPlus /> Create list
               </Button> : null}
@@ -266,7 +266,11 @@ export function RecipientsPage() {
             ) : error ? (
               <p className="text-sm text-destructive">{error}</p>
             ) : contacts.length === 0 ? (
-              <EmptyState title="No contacts yet" description="Add a contact or import a CSV to get started." />
+              <EmptyState
+                title={q || status || listId ? "No matching recipients" : "No recipients yet"}
+                description={q || status || listId ? "Try changing or clearing your filters." : "Add a contact or import a CSV to get started."}
+                action={q || status || listId ? <Button variant="outline" onClick={() => { setQ(""); setStatus(""); setListId(""); setPage(1); }}>Clear filters</Button> : undefined}
+              />
             ) : (
               <ContactsTable
                 contacts={contacts}

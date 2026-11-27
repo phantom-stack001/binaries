@@ -5,8 +5,10 @@ import { RecentCampaigns } from "@/components/dashboard/RecentCampaigns";
 import { PageMeta } from "@/components/layout/PageMeta";
 import { AppPageContainer } from "@/components/shared/AppPageContainer";
 import { PageHeader } from "@/components/shared/PageHeader";
+import { useAuthorization } from "@/lib/authorization";
 
 export function DashboardPage() {
+  const { can } = useAuthorization();
   return (
     <>
       <PageMeta
@@ -17,14 +19,13 @@ export function DashboardPage() {
       <AppPageContainer>
         <PageHeader
           title="Dashboard"
-          description="Manage your email campaigns and sending activity."
-          notice="Campaign queues stay simulation-only. Individual mailbox test messages are sent from Settings."
+          description="A quick overview of your campaigns, recipients, and queue activity."
         />
         <DashboardStats />
         <QuickActions />
         <div className="grid gap-6 lg:grid-cols-2">
           <RecentCampaigns />
-          <QueueActivity />
+          {can("queue.read") ? <QueueActivity /> : null}
         </div>
       </AppPageContainer>
     </>

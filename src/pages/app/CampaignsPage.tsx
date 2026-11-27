@@ -1,4 +1,4 @@
-import { Mail, Plus } from "lucide-react";
+import { Mail, Plus, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useAuthorization } from "@/lib/authorization";
 import {
   CampaignApiError,
   cancelCampaign,
@@ -34,6 +35,7 @@ import {
 } from "@/lib/campaigns-api";
 
 export function CampaignsPage() {
+  const { can } = useAuthorization();
   const [stats, setStats] = useState<Awaited<ReturnType<typeof fetchCampaignStats>>["stats"] | null>(null);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
@@ -138,14 +140,14 @@ export function CampaignsPage() {
         <PageHeader
           title="Campaigns"
           description="Create, organize, and prepare email campaigns."
-          actions={
+          actions={can("campaigns.create") ? (
             <Button asChild>
               <Link to="/app/campaigns/new/">
                 <Plus />
                 Create campaign
               </Link>
             </Button>
-          }
+          ) : null}
         />
 
         {stats && <CampaignStats stats={stats} />}
@@ -175,6 +177,11 @@ export function CampaignsPage() {
             <option value="scheduled">Scheduled</option>
             <option value="cancelled">Cancelled</option>
           </select>
+          {q || status ? (
+            <Button variant="ghost" onClick={() => { setQ(""); setStatus(""); setPage(1); }}>
+              <X /> Clear filters
+            </Button>
+          ) : null}
         </div>
 
         {loading ? (
@@ -189,13 +196,13 @@ export function CampaignsPage() {
         ) : campaigns.length === 0 ? (
           <EmptyState
             icon={Mail}
-            title="No campaigns yet"
-            description="Create a campaign to combine a draft email with recipient targeting and eligibility checks."
-            action={
+            title={q || status ? "No matching campaigns" : "No campaigns yet"}
+            description={q || status ? "Try another search or clear the status filter." : "Campaigns combine a message with recipient targeting and eligibility checks."}
+            action={!q && !status && can("campaigns.create") ? (
               <Button asChild>
                 <Link to="/app/campaigns/new/">Create campaign</Link>
               </Button>
-            }
+            ) : undefined}
           />
         ) : (
           <>
