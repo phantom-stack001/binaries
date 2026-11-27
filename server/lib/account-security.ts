@@ -55,7 +55,12 @@ function pathMatches(path: string, prefix: string) {
 
 const PASSWORD_CHANGE_ALLOWED_PREFIXES = ["/api/me", "/api/account/change-password", "/api/account/security"];
 
-const TWO_FACTOR_SETUP_ALLOWED_PREFIXES = ["/api/me", "/api/account/security", "/api/account/profile"];
+const TWO_FACTOR_SETUP_ALLOWED_PREFIXES = [
+  "/api/me",
+  "/api/account/security",
+  "/api/account/profile",
+  "/api/account/change-password",
+];
 
 export function isApiPathAllowedDuringPasswordChange(path: string, method: string): boolean {
   if (method === "OPTIONS") return true;
