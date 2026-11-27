@@ -28,8 +28,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/verify-email/" replace state={{ email: session.user.email }} />;
   }
 
-  if (gate.mustChangePassword && !pathname.startsWith("/app/change-password")) {
-    return <Navigate to="/app/change-password/" replace />;
+  if (gate.mustChangePassword) {
+    if (!pathname.startsWith("/app/change-password/")) {
+      return <Navigate to="/app/change-password/" replace />;
+    }
+    return children;
   }
 
   if (
