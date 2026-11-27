@@ -75,7 +75,7 @@ export function FeatureSettingsPage() {
         onClick={onChange}
         className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 ${enabled ? "bg-primary" : "bg-muted-foreground/40"}`}
       >
-        <span className={`absolute top-0.5 size-5 rounded-full bg-background shadow transition-transform ${enabled ? "translate-x-5" : "translate-x-0.5"}`} />
+        <span className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-background shadow transition-transform ${enabled ? "translate-x-5" : "translate-x-0"}`} />
       </button>
     </div>
   );
