@@ -40,6 +40,10 @@ type UserDetail = {
 };
 
 const ASSIGNABLE = ["viewer", "editor", "campaign-manager", "admin", "user"];
+const FALLBACK_SUPER_ADMIN_ROLES = [
+  ...ASSIGNABLE.map((key) => ({ key, name: key })),
+  { key: "super-admin", name: "Super admin" },
+];
 
 export function UserDetailsPage() {
   const { userId = "" } = useParams();
@@ -62,6 +66,10 @@ export function UserDetailsPage() {
   const [verifying, setVerifying] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [changing, setChanging] = useState(false);
+  const [savingRoles, setSavingRoles] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [roleOptions, setRoleOptions] = useState<{ key: string; name: string }[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
   const { can } = useAuthorization();
   const { data: session } = authClient.useSession();
   const sessionUserId = session?.user?.id ?? "";
@@ -70,6 +78,28 @@ export function UserDetailsPage() {
     .map((part) => part.trim())
     .includes("super-admin");
   const canDeleteAccount = can("users.delete") && Boolean(sessionUserId) && sessionUserId !== userId;
+
+  useEffect(() => {
+    if (!isSuperAdmin) return;
+    let cancelled = false;
+    setRolesLoading(true);
+    fetch("/api/admin/roles", { credentials: "include" })
+      .then(async (response) => {
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error ?? "Could not load available roles.");
+        if (!cancelled) {
+          const available = (payload.roles ?? []) as { key: string; name: string }[];
+          setRoleOptions(available.length ? available : FALLBACK_SUPER_ADMIN_ROLES);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setRoleOptions(FALLBACK_SUPER_ADMIN_ROLES);
+      })
+      .finally(() => {
+        if (!cancelled) setRolesLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [isSuperAdmin]);
 
   async function load(options?: { silent?: boolean }) {
     try {
@@ -114,20 +144,56 @@ export function UserDetailsPage() {
   }, [userId]);
 
   async function save() {
+    if (savingProfile) return;
     setError(null);
-    const response = await fetch(`/api/admin/users/${userId}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, roleKeys: roles }),
-    });
-    const payload = await response.json();
-    if (!response.ok) {
-      setError(payload.error ?? "Could not update this user.");
-      return;
+    setSavingProfile(true);
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(payload.error ?? "Could not update this user.");
+        return;
+      }
+      setAccount(payload.user);
+      setName(payload.user.name);
+      setMessage("Profile updated.");
+    } catch {
+      setError("Could not update this user.");
+    } finally {
+      setSavingProfile(false);
     }
-    setMessage("Account updated.");
-    setAccount(payload.user);
+  }
+
+  async function saveRoles() {
+    if (savingRoles || !can("users.update")) return;
+    setError(null);
+    setMessage(null);
+    setSavingRoles(true);
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roleKeys: roles }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(payload.error ?? "Could not update this user’s roles.");
+        return;
+      }
+      setAccount(payload.user);
+      setRoles(payload.user.roles);
+      setMessage("User roles updated.");
+    } catch {
+      setError("Could not update this user’s roles.");
+    } finally {
+      setSavingRoles(false);
+    }
   }
 
   async function setStatus(status: "active" | "suspended" | "deactivated") {
@@ -322,29 +388,39 @@ export function UserDetailsPage() {
                 ) : null}
               </div>
               <p className="text-sm capitalize">Status: {account.status}</p>
-              <Button type="button" onClick={() => void save()}>Save profile</Button>
+              <Button type="button" onClick={() => void save()} disabled={savingProfile}>
+                {savingProfile ? "Saving…" : "Save profile"}
+              </Button>
             </CardContent>
           </Card>
           <Card>
             <CardHeader><CardTitle>Access</CardTitle></CardHeader>
             <CardContent className="space-y-3">
-              {ASSIGNABLE.map((key) => (
+              <p className="text-sm text-muted-foreground">Choose the roles assigned to this account. Changes take effect after saving.</p>
+              {(isSuperAdmin ? roleOptions : ASSIGNABLE.map((key) => ({ key, name: key }))).map(({ key, name: roleName }) => (
                 <label key={key} className="flex min-h-11 items-center gap-3 text-sm">
                   <input
                     className="size-5"
                     type="checkbox"
                     checked={roles.includes(key)}
+                    disabled={!can("users.update") || savingRoles}
                     onChange={(event) => {
                       setRoles((current) => event.target.checked ? [...current, key] : current.filter((item) => item !== key));
                     }}
                   />
-                  {key}
+                  <span>{roleName}</span>
                 </label>
               ))}
+              {isSuperAdmin && rolesLoading ? <p className="text-sm text-muted-foreground">Loading available roles…</p> : null}
               {roles.includes("super-admin") ? <Badge>super-admin</Badge> : null}
               <div className="flex flex-wrap gap-1">
                 {account.permissions.slice(0, 12).map((permission) => <Badge key={permission} variant="outline">{permission}</Badge>)}
               </div>
+              {can("users.update") ? (
+                <Button type="button" onClick={() => void saveRoles()} disabled={savingRoles || rolesLoading}>
+                  {savingRoles ? "Saving roles…" : "Save roles"}
+                </Button>
+              ) : null}
             </CardContent>
           </Card>
           <Card>
