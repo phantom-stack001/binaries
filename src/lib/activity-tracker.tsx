@@ -12,6 +12,13 @@ export function ActivityTracker() {
   useEffect(() => {
     const path = `${location.pathname}${location.search}`;
     if (!path.startsWith("/app")) return;
+    // These routes are intentionally available during account-security gates;
+    // don't send page-view beacons that the API correctly rejects there.
+    if (
+      location.pathname.startsWith("/app/change-password/") ||
+      location.pathname.startsWith("/app/settings/profile/") ||
+      location.pathname.startsWith("/app/settings/security/")
+    ) return;
     if (lastSentRef.current === path) return;
     lastSentRef.current = path;
 

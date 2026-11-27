@@ -84,7 +84,9 @@ export function LoginForm({ className, ...props }: LoginFormProps) {
       return;
     }
 
-    navigate(redirectTo, { replace: true });
+    // Start a fresh document so the new session cookie and current deployed
+    // client build are loaded before the protected app routes run.
+    window.location.replace(redirectTo);
   }
 
   return (
